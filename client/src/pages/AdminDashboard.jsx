@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import io from 'socket.io-client';
+import AuditLogViewer from '../components/AuditLogViewer';
+import PasswordInput from '../components/PasswordInput';
 
 const AdminDashboard = () => {
   const { user } = useAuth();
@@ -38,6 +40,8 @@ const AdminDashboard = () => {
     date: '',
     time: ''
   });
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [showAuditLogs, setShowAuditLogs] = useState(false);
   const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
 
   const getStatusColor = (status) => {
@@ -52,33 +56,9 @@ const AdminDashboard = () => {
       case 'booked': return 'dark:bg-blue-900 dark:text-blue-200 bg-blue-100 text-blue-800';
       case 'waiting': return 'dark:bg-yellow-900 dark:text-yellow-200 bg-yellow-100 text-yellow-800';
       case 'ongoing': return 'dark:bg-orange-900 dark:text-orange-200 bg-orange-100 text-orange-800';
-      default: return 'dark:bg-slate-700 dark:text-slate-200 bg-gray-100 text-gray-800';
+      default: return 'dark:bg-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200';
     }
   };
-
-  useEffect(() => {
-    fetchDoctors();
-    fetchPatients();
-    fetchAppointments();
-  }, []);
-
-  useEffect(() => {
-    const socket = io(socketUrl);
-    socket.on('appointmentUpdate', () => {
-      fetchAppointments();
-      if (selectedDoctor && selectedDate) {
-        fetchQueue();
-      }
-    });
-
-    return () => socket.close();
-  }, [selectedDoctor, selectedDate]);
-
-  useEffect(() => {
-    if (selectedDoctor && selectedDate) {
-      fetchQueue();
-    }
-  }, [selectedDoctor, selectedDate]);
 
   const fetchDoctors = async () => {
     try {
@@ -99,6 +79,37 @@ const AdminDashboard = () => {
     }
   };
 
+  const fetchAuditLogs = async () => {
+    try {
+      const res = await axios.get('/api/records/audit-logs');
+      setAuditLogs(res.data);
+    } catch (error) {
+      console.error('Error fetching audit logs:', error);
+    }
+  };
+
+  const handleToggleDoctorStatus = async (id, currentStatus) => {
+    try {
+      await axios.patch(`/api/doctors/${id}/status`, { isActive: !currentStatus });
+      fetchDoctors();
+      fetchAuditLogs();
+    } catch (error) {
+      console.error('Error toggling doctor status:', error);
+      alert(error.response?.data?.message || 'Failed to update doctor status');
+    }
+  };
+
+  const handleTogglePatientStatus = async (id, currentStatus) => {
+    try {
+      await axios.patch(`/api/users/${id}/status`, { isActive: !currentStatus });
+      fetchPatients();
+      fetchAuditLogs();
+    } catch (error) {
+      console.error('Error toggling patient status:', error);
+      alert(error.response?.data?.message || 'Failed to update patient status');
+    }
+  };
+
   const fetchPatients = async () => {
     try {
       const res = await axios.get('/api/users');
@@ -108,7 +119,7 @@ const AdminDashboard = () => {
     }
   };
 
-  const fetchQueue = async () => {
+  const fetchQueue = useCallback(async () => {
     if (!selectedDoctor || !selectedDate) return;
     try {
       const res = await axios.get(`/api/appointments/queue/${selectedDoctor}/${selectedDate}`);
@@ -116,7 +127,33 @@ const AdminDashboard = () => {
     } catch (error) {
       console.error('Error fetching queue:', error);
     }
-  };
+  }, [selectedDoctor, selectedDate]);
+
+  useEffect(() => {
+    fetchDoctors();
+    fetchPatients();
+    fetchAppointments();
+    fetchAuditLogs();
+  }, []);
+
+  useEffect(() => {
+    const socket = io(socketUrl);
+    socket.on('appointmentUpdate', () => {
+      fetchAppointments();
+    fetchAuditLogs();
+      if (selectedDoctor && selectedDate) {
+        fetchQueue();
+      }
+    });
+
+    return () => socket.close();
+  }, [selectedDoctor, selectedDate, socketUrl, fetchQueue]);
+
+  useEffect(() => {
+    if (selectedDoctor && selectedDate) {
+      fetchQueue();
+    }
+  }, [selectedDoctor, selectedDate, fetchQueue]);
 
   const handleDoctorSubmit = async (e) => {
     e.preventDefault();
@@ -178,6 +215,7 @@ const AdminDashboard = () => {
   };
 
   const handleDeleteDoctor = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this doctor?')) return;
     try {
       await axios.delete(`/api/doctors/${id}`);
       fetchDoctors();
@@ -187,6 +225,7 @@ const AdminDashboard = () => {
   };
 
   const handleDeletePatient = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this patient?')) return;
     try {
       await axios.delete(`/api/users/${id}`);
       fetchPatients();
@@ -200,6 +239,7 @@ const AdminDashboard = () => {
       await axios.put(`/api/appointments/${appointmentId}/status`, { status });
       fetchQueue();
       fetchAppointments();
+    fetchAuditLogs();
     } catch (error) {
       console.error('Error updating status:', error);
     }
@@ -213,11 +253,14 @@ const AdminDashboard = () => {
         date: rescheduleData.date,
         time: rescheduleData.time
       });
+      alert('Appointment rescheduled successfully!');
       setRescheduleData({ appointmentId: '', doctorId: '', date: '', time: '' });
       fetchAppointments();
+    fetchAuditLogs();
       if (selectedDoctor && selectedDate) fetchQueue();
     } catch (error) {
       console.error('Error rescheduling appointment:', error);
+      alert(error.response?.data?.message || 'Failed to reschedule appointment');
     }
   };
 
@@ -245,7 +288,7 @@ const AdminDashboard = () => {
   const nextToken = queue.find(a => ['confirmed', 'checked_in'].includes(a.status))?.tokenNumber || 'N/A';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 py-8">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 py-8">
       <div className="max-w-7xl mx-auto px-4">
         <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-2xl p-8 mb-8 shadow-xl">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -261,26 +304,26 @@ const AdminDashboard = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-md border border-slate-200 dark:border-slate-800 p-6">
             <p className="text-sm text-gray-500">Total Patients</p>
             <p className="text-3xl font-bold text-blue-600">{totalPatients}</p>
           </div>
-          <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-md border border-slate-200 dark:border-slate-800 p-6">
             <p className="text-sm text-gray-500">Completed Appointments</p>
             <p className="text-3xl font-bold text-green-600">{completedAppointments}</p>
           </div>
-          <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-md border border-slate-200 dark:border-slate-800 p-6">
             <p className="text-sm text-gray-500">Total Earnings</p>
             <p className="text-3xl font-bold text-green-600">₹{totalEarnings}</p>
           </div>
-          <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-md border border-slate-200 dark:border-slate-800 p-6">
             <p className="text-sm text-gray-500">Average Wait Time</p>
             <p className="text-3xl font-bold text-indigo-600">{averageWaitTime}m</p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
-          <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-md border border-slate-200 dark:border-slate-800 p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold">Doctors</h2>
               <button
@@ -298,7 +341,7 @@ const AdminDashboard = () => {
             </div>
 
             {showAddDoctor && (
-              <form onSubmit={handleDoctorSubmit} className="mb-6 p-4 bg-gray-50 rounded">
+              <form onSubmit={handleDoctorSubmit} className="mb-6 p-4 bg-slate-50 dark:bg-slate-800/60 rounded">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <input
                     type="text"
@@ -326,9 +369,9 @@ const AdminDashboard = () => {
                   />
                   <input
                     type="tel"
-                    placeholder="Phone"
+                    placeholder="10-digit Phone"
                     value={doctorForm.phone}
-                    onChange={(e) => setDoctorForm({ ...doctorForm, phone: e.target.value })}
+                    onChange={(e) => setDoctorForm({ ...doctorForm, phone: e.target.value.replace(/\D/g, "").slice(0, 10) })} maxLength={10} inputMode="numeric" pattern="[0-9]{10}" 
                     className="px-3 py-2 border rounded"
                   />
                   <input
@@ -339,8 +382,7 @@ const AdminDashboard = () => {
                     className="px-3 py-2 border rounded"
                     required
                   />
-                  <input
-                    type="password"
+                  <PasswordInput
                     placeholder="Leave blank to keep default/password unchanged"
                     value={doctorForm.password}
                     onChange={(e) => setDoctorForm({ ...doctorForm, password: e.target.value })}
@@ -394,13 +436,24 @@ const AdminDashboard = () => {
 
             <div className="space-y-3">
               {doctors.map(doctor => (
-                <div key={doctor._id} className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 bg-gray-50 rounded-lg border">
+                <div key={doctor._id} className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 bg-slate-50 dark:bg-slate-800/60 rounded-lg border">
                   <div>
-                    <p className="font-semibold">{doctor.name}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold">{doctor.name}</p>
+                      <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full font-bold ${doctor.isActive !== false ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'}`}>
+                        {doctor.isActive !== false ? 'Active' : 'Deactivated'}
+                      </span>
+                    </div>
                     <p className="text-sm text-gray-600">{doctor.specialization}</p>
                     <p className="text-sm text-gray-500">{doctor.timings?.start} - {doctor.timings?.end}</p>
                   </div>
                   <div className="flex flex-wrap gap-2 mt-3 md:mt-0">
+                    <button
+                      onClick={() => handleToggleDoctorStatus(doctor._id, doctor.isActive !== false)}
+                      className={`px-3 py-1 rounded text-sm font-bold text-white transition ${doctor.isActive !== false ? 'bg-amber-500 hover:bg-amber-600' : 'bg-emerald-600 hover:bg-emerald-700'}`}
+                    >
+                      {doctor.isActive !== false ? 'Deactivate' : 'Activate'}
+                    </button>
                     <button
                       onClick={() => {
                         setEditingDoctor(doctor._id);
@@ -436,7 +489,7 @@ const AdminDashboard = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-md border border-slate-200 dark:border-slate-800 p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold">Patient Management</h2>
               <button
@@ -454,7 +507,7 @@ const AdminDashboard = () => {
             </div>
 
             {showAddPatient && (
-              <form onSubmit={handlePatientSubmit} className="mb-6 p-4 bg-gray-50 rounded">
+              <form onSubmit={handlePatientSubmit} className="mb-6 p-4 bg-slate-50 dark:bg-slate-800/60 rounded">
                 <div className="grid grid-cols-1 gap-4">
                   <input
                     type="text"
@@ -474,14 +527,13 @@ const AdminDashboard = () => {
                   />
                   <input
                     type="tel"
-                    placeholder="Phone"
+                    placeholder="10-digit Phone"
                     value={patientForm.phone}
-                    onChange={(e) => setPatientForm({ ...patientForm, phone: e.target.value })}
+                    onChange={(e) => setPatientForm({ ...patientForm, phone: e.target.value.replace(/\D/g, "").slice(0, 10) })} maxLength={10} inputMode="numeric" pattern="[0-9]{10}" 
                     className="px-3 py-2 border rounded"
                   />
                   {!selectedPatient && (
-                    <input
-                      type="password"
+                    <PasswordInput
                       placeholder="Password"
                       value={patientForm.password}
                       onChange={(e) => setPatientForm({ ...patientForm, password: e.target.value })}
@@ -498,12 +550,13 @@ const AdminDashboard = () => {
 
             <div className="overflow-x-auto">
               <table className="min-w-full bg-white rounded-lg shadow-sm">
-                <thead className="bg-gray-100">
+                <thead className="bg-slate-100 dark:bg-slate-800">
                   <tr>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Name</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Email</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Phone</th>
-                    <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700">Actions</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700 dark:text-slate-300">Name</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700 dark:text-slate-300">Email</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700 dark:text-slate-300">Phone</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700 dark:text-slate-300">Status</th>
+                    <th className="px-4 py-3 text-right text-sm font-semibold text-slate-700 dark:text-slate-300">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -512,7 +565,18 @@ const AdminDashboard = () => {
                       <td className="px-4 py-3">{patient.name}</td>
                       <td className="px-4 py-3">{patient.email}</td>
                       <td className="px-4 py-3">{patient.phone || '-'}</td>
+                      <td className="px-4 py-3">
+                        <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full font-bold ${patient.isActive !== false ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'}`}>
+                          {patient.isActive !== false ? 'Active' : 'Deactivated'}
+                        </span>
+                      </td>
                       <td className="px-4 py-3 text-right space-x-2">
+                        <button
+                          onClick={() => handleTogglePatientStatus(patient._id, patient.isActive !== false)}
+                          className={`px-3 py-1 rounded text-sm font-bold text-white transition ${patient.isActive !== false ? 'bg-amber-500 hover:bg-amber-600' : 'bg-emerald-600 hover:bg-emerald-700'}`}
+                        >
+                          {patient.isActive !== false ? 'Deactivate' : 'Activate'}
+                        </button>
                         <button
                           onClick={() => {
                             setSelectedPatient(patient);
@@ -533,7 +597,7 @@ const AdminDashboard = () => {
                     </tr>
                   )) : (
                     <tr>
-                      <td colSpan="4" className="text-center py-6 text-gray-500">No patients found.</td>
+                      <td colSpan="5" className="text-center py-6 text-gray-500">No patients found.</td>
                     </tr>
                   )}
                 </tbody>
@@ -542,7 +606,7 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-md border border-slate-200 dark:border-slate-800 p-6 mb-8">
           <h2 className="text-xl font-semibold mb-4">Queue Monitoring</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div className="p-4 bg-blue-50 rounded-lg">
@@ -581,11 +645,11 @@ const AdminDashboard = () => {
           {selectedDoctor ? (
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div className="p-4 rounded-lg bg-gray-50">
+                <div className="p-4 rounded-lg bg-slate-50 dark:bg-slate-800/60">
                   <p className="text-sm text-gray-600">Current Token</p>
                   <p className="text-4xl font-bold text-indigo-700">{currentToken}</p>
                 </div>
-                <div className="p-4 rounded-lg bg-gray-50">
+                <div className="p-4 rounded-lg bg-slate-50 dark:bg-slate-800/60">
                   <p className="text-sm text-gray-600">Next Token</p>
                   <p className="text-4xl font-bold text-indigo-700">{nextToken}</p>
                 </div>
@@ -596,13 +660,19 @@ const AdminDashboard = () => {
               ) : (
                 <div className="space-y-3">
                   {queue.map(appointment => (
-                    <div key={appointment._id} className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 bg-gray-50 rounded-lg border">
+                    <div key={appointment._id} className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 bg-slate-50 dark:bg-slate-800/60 rounded-lg border">
                       <div>
                         <p className="font-semibold">Token #{appointment.tokenNumber}</p>
                         <p className="text-sm text-gray-600">{appointment.patient?.name || 'Unknown patient'}</p>
                         <p className="text-sm text-gray-500">{appointment.time}</p>
                       </div>
                       <div className="flex flex-wrap gap-2 mt-3 md:mt-0">
+                    <button
+                      onClick={() => handleToggleDoctorStatus(doctor._id, doctor.isActive !== false)}
+                      className={`px-3 py-1 rounded text-sm font-bold text-white transition ${doctor.isActive !== false ? 'bg-amber-500 hover:bg-amber-600' : 'bg-emerald-600 hover:bg-emerald-700'}`}
+                    >
+                      {doctor.isActive !== false ? 'Deactivate' : 'Activate'}
+                    </button>
                         {appointment.status === 'pending' && (
                           <button
                             onClick={() => updateAppointmentStatus(appointment._id, 'confirmed')}
@@ -644,7 +714,7 @@ const AdminDashboard = () => {
                         <button
                           onClick={() => setRescheduleData({
                             appointmentId: appointment._id,
-                            doctorId: appointment.doctor._id,
+                            doctorId: appointment.doctor?._id || appointment.doctor || selectedDoctor,
                             date: new Date(appointment.date).toISOString().split('T')[0],
                             time: appointment.time
                           })}
@@ -663,17 +733,17 @@ const AdminDashboard = () => {
           )}
         </div>
 
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-md border border-slate-200 dark:border-slate-800 p-6 mb-8">
           <h2 className="text-xl font-semibold mb-4">Appointment Management</h2>
           <div className="overflow-x-auto">
             <table className="min-w-full bg-white rounded-lg shadow-sm">
-              <thead className="bg-gray-100">
+              <thead className="bg-slate-100 dark:bg-slate-800">
                 <tr>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Patient</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Doctor</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Time</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
-                  <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700">Actions</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700 dark:text-slate-300">Patient</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700 dark:text-slate-300">Doctor</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700 dark:text-slate-300">Time</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700 dark:text-slate-300">Status</th>
+                  <th className="px-4 py-3 text-right text-sm font-semibold text-slate-700 dark:text-slate-300">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -718,7 +788,7 @@ const AdminDashboard = () => {
         </div>
 
         {rescheduleData.appointmentId && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-md border border-slate-200 dark:border-slate-800 p-6 mb-8">
             <h2 className="text-xl font-semibold mb-4">Reschedule Appointment</h2>
             <form onSubmit={handleRescheduleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <select
@@ -751,7 +821,7 @@ const AdminDashboard = () => {
                 <button
                   type="button"
                   onClick={() => setRescheduleData({ appointmentId: '', doctorId: '', date: '', time: '' })}
-                  className="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded"
+                  className="bg-gray-300 hover:bg-gray-400 text-slate-800 dark:text-slate-200 px-4 py-2 rounded"
                 >
                   Cancel
                 </button>
@@ -759,8 +829,11 @@ const AdminDashboard = () => {
             </form>
           </div>
         )}
+        {/* Healthcare Security & Compliance Audit Log */}
+        <AuditLogViewer />
       </div>
     </div>
+
   );
 };
 

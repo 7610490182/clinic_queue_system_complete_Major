@@ -39,6 +39,18 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const res = await axios.post('/api/auth/login', { email, password });
+    if (res.data?.requires2FA) {
+      return res.data;
+    }
+    const { token, user } = res.data;
+    localStorage.setItem('token', token);
+    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    setUser(user);
+    return user;
+  };
+
+  const verify2FA = async (email, code) => {
+    const res = await axios.post('/api/auth/2fa/verify', { email, code });
     const { token, user } = res.data;
     localStorage.setItem('token', token);
     axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
@@ -63,7 +75,9 @@ export const AuthProvider = ({ children }) => {
 
   const value = {
     user,
+    setUser,
     login,
+    verify2FA,
     register,
     logout,
     loading

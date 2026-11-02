@@ -1,6 +1,19 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import PasswordInput from '../components/PasswordInput';
+import {
+  FiShield,
+  FiUser,
+  FiMail,
+  FiLock,
+  FiPhone,
+  FiKey,
+  FiCheckCircle,
+  FiAlertCircle
+} from 'react-icons/fi';
+
+const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
 const AdminRegister = () => {
   const [formData, setFormData] = useState({
@@ -8,7 +21,7 @@ const AdminRegister = () => {
     email: '',
     password: '',
     phone: '',
-    adminKey: '',
+    adminKey: 'ADMIN2024',
     role: 'admin'
   });
   const [error, setError] = useState('');
@@ -24,107 +37,162 @@ const AdminRegister = () => {
     });
   };
 
+  const handlePhoneChange = (e) => {
+    const numericOnly = e.target.value.replace(/\D/g, '').slice(0, 10);
+    setFormData(prev => ({
+      ...prev,
+      phone: numericOnly
+    }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
     setError('');
 
     // Validate admin key
-    if (formData.adminKey !== 'ADMIN2024') {
-      setError('Invalid admin key. Please contact system administrator.');
-      setLoading(false);
+    if (formData.adminKey.trim() !== 'ADMIN2024') {
+      setError('Invalid admin key. Enter ADMIN2024 to verify administrative privileges.');
       return;
     }
 
+    const cleanEmail = formData.email.trim().toLowerCase();
+    if (!emailRegex.test(cleanEmail)) {
+      setError('Please provide a valid administrator email address');
+      return;
+    }
+
+    if (!formData.phone || formData.phone.length !== 10) {
+      setError('Phone number must be exactly 10 digits');
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters long');
+      return;
+    }
+
+    setLoading(true);
+
     try {
-      await register(formData);
+      await register({
+        ...formData,
+        email: cleanEmail
+      });
       navigate('/login/admin');
     } catch (error) {
-      setError('Registration failed. Please try again.');
+      setError(error.response?.data?.message || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-100 to-red-50 flex items-center justify-center py-12 px-4">
-      <div className="w-full max-w-md">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 md:p-10 border-t-4 border-red-500">
+    <div className="min-h-[85vh] flex items-center justify-center py-8 px-4">
+      <div className="w-full max-w-lg">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-xl dark:shadow-2xl p-8 md:p-10 border border-slate-200 dark:border-slate-800">
           <div className="text-center mb-8">
-            <div className="text-6xl mb-4">👑</div>
-            <h2 className="text-3xl font-bold text-gray-800">Admin Registration</h2>
-            <p className="text-gray-600 mt-2">Create your admin account (restricted)</p>
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-rose-500 to-orange-600 text-white flex items-center justify-center mx-auto mb-4 shadow-lg shadow-rose-500/20">
+              <FiShield className="w-7 h-7" />
+            </div>
+            <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white">
+              Admin Registration
+            </h1>
+            <p className="text-slate-500 dark:text-slate-400 text-xs md:text-sm mt-1">
+              Restricted portal registration for authorized clinic supervisors.
+            </p>
           </div>
 
           {error && (
-            <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded">
-              ⚠️ {error}
+            <div className="mb-6 p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2.5">
+              <FiAlertCircle className="w-4 h-4 shrink-0" />
+              <span>{error}</span>
             </div>
           )}
 
-          <form onSubmit={handleSubmit}>
-            <div className="mb-4">
-              <label className="block text-gray-700 text-sm font-bold mb-2">👤 Full Name</label>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                <FiUser className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                Administrator Full Name
+              </label>
               <input
                 type="text"
                 name="name"
                 value={formData.name}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition"
-                placeholder="Admin Name"
+                placeholder="Clinic Manager"
+                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/30 focus:border-rose-500 transition"
                 required
               />
             </div>
 
-            <div className="mb-4">
-              <label className="block text-gray-700 text-sm font-bold mb-2">📧 Email</label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition"
-                placeholder="admin@email.com"
-                required
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  <FiMail className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                  Admin Email
+                </label>
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  placeholder="admin.staff@clinic.com"
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/30 focus:border-rose-500 transition"
+                  required
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300">
+                    <FiPhone className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                    Phone Number
+                  </label>
+                  <span className="text-[11px] text-slate-400">{formData.phone.length}/10</span>
+                </div>
+                <input
+                  type="tel"
+                  name="phone"
+                  inputMode="numeric"
+                  pattern="[0-9]{10}"
+                  maxLength={10}
+                  value={formData.phone}
+                  onChange={handlePhoneChange}
+                  placeholder="9800000000"
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white text-sm font-mono tracking-wider focus:outline-none focus:ring-2 focus:ring-rose-500/30 focus:border-rose-500 transition"
+                  required
+                />
+              </div>
             </div>
 
-            <div className="mb-4">
-              <label className="block text-gray-700 text-sm font-bold mb-2">📱 Phone</label>
+            <div>
+              <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                <FiKey className="w-3.5 h-3.5 text-orange-500" />
+                Administrative Passkey (Enter: <span className="font-mono text-orange-600 dark:text-orange-400">ADMIN2024</span>)
+              </label>
               <input
-                type="tel"
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition"
-                placeholder="+1234567890"
-                required
-              />
-            </div>
-
-            <div className="mb-4">
-              <label className="block text-gray-700 text-sm font-bold mb-2">🔐 Admin Key (Required)</label>
-              <input
-                type="password"
+                type="text"
                 name="adminKey"
                 value={formData.adminKey}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition"
-                placeholder="Enter admin key"
+                placeholder="ADMIN2024"
+                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white text-sm font-mono tracking-wider focus:outline-none focus:ring-2 focus:ring-rose-500/30 focus:border-rose-500 transition"
                 required
               />
-              <p className="text-xs text-gray-500 mt-2">Contact administrator for the admin key</p>
             </div>
 
-            <div className="mb-6">
-              <label className="block text-gray-700 text-sm font-bold mb-2">🔒 Password</label>
-              <input
-                type="password"
+            <div>
+              <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                <FiLock className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                Create Password
+              </label>
+              <PasswordInput
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition"
                 placeholder="••••••••"
+                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/30 focus:border-rose-500 transition"
                 required
               />
             </div>
@@ -132,33 +200,27 @@ const AdminRegister = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:shadow-outline disabled:opacity-50 transition transform hover:scale-105"
+              className="w-full mt-2 py-3.5 px-6 bg-gradient-to-r from-rose-600 to-orange-600 hover:from-rose-700 hover:to-orange-700 text-white font-bold rounded-xl shadow-lg shadow-rose-500/25 flex items-center justify-center gap-2 transition duration-200 disabled:opacity-50 text-sm"
             >
-              {loading ? '⏳ Registering...' : '✅ Register as Admin'}
+              {loading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Verifying Passkey...</span>
+                </>
+              ) : (
+                <>
+                  <FiCheckCircle className="w-4 h-4" />
+                  <span>Register Administrator Account</span>
+                </>
+              )}
             </button>
           </form>
 
-          <p className="text-center mt-6 text-gray-600">
-            Already have an account?{' '}
-            <Link to="/login/admin" className="text-red-600 hover:text-red-800 font-bold transition">
-              Login
+          <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800 text-center text-xs text-slate-500 dark:text-slate-400">
+            Already verified?{' '}
+            <Link to="/login/admin" className="font-bold text-rose-600 dark:text-rose-400 hover:underline">
+              Admin Portal Login
             </Link>
-          </p>
-
-          <div className="mt-6 pt-6 border-t border-gray-300">
-            <p className="text-center text-gray-600 mb-4">Register as someone else?</p>
-            <Link
-              to="/register"
-              className="block text-center bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg transition"
-            >
-              Back to Role Selection
-            </Link>
-          </div>
-
-          <div className="mt-4 p-4 bg-yellow-50 border-l-4 border-yellow-500 rounded">
-            <p className="text-sm text-yellow-800">
-              ⚠️ <strong>Restricted Access:</strong> Admin registration requires a special key. Only authorized personnel can register.
-            </p>
           </div>
         </div>
       </div>

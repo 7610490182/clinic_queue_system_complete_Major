@@ -1,42 +1,40 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import io from 'socket.io-client';
 import { predictWaitTime } from '../services/aiService';
 import { sendQueueUpdateNotification } from '../services/notificationService';
+import QRCheckInCard from '../components/QRCheckInCard';
+import {
+  FiCalendar,
+  FiClock,
+  FiCreditCard,
+  FiCompass,
+  FiCheckCircle,
+  FiXCircle,
+  FiActivity,
+  FiAlertCircle,
+  FiTrash2,
+  FiArrowRight,
+  FiUser,
+  FiTag,
+  FiVideo,
+  FiCamera,
+  FiFileText,
+  FiX
+} from 'react-icons/fi';
+import { FaUserMd } from 'react-icons/fa';
 
 const MyAppointments = () => {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedApt, setSelectedApt] = useState(null);
+  const [qrPassApt, setQrPassApt] = useState(null);
+  const [payingId, setPayingId] = useState(null);
+  const navigate = useNavigate();
   const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
 
-  useEffect(() => {
-    fetchAppointments();
-
-    // Connect to socket for real-time updates
-    const newSocket = io(socketUrl);
-
-    newSocket.on('appointmentUpdate', (data) => {
-      // Update appointment status in real-time
-      setAppointments(prev =>
-        prev.map(apt => {
-          if (apt._id === data.appointmentId) {
-            const updated = { ...apt, status: data.status };
-            // Send notification on queue update
-            if (data.status === 'in_queue') {
-              sendQueueUpdateNotification(updated, 0, data.estimatedWaitTime);
-            }
-            return updated;
-          }
-          return apt;
-        })
-      );
-    });
-
-    return () => newSocket.close();
-  }, [socketUrl]);
-
-  const fetchAppointments = async () => {
+  const fetchAppointments = useCallback(async () => {
     try {
       const res = await axios.get('/api/appointments/my');
       setAppointments(res.data);
@@ -45,146 +43,387 @@ const MyAppointments = () => {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    fetchAppointments();
+
+    const newSocket = io(socketUrl);
+
+    newSocket.on('appointmentUpdate', (data) => {
+      fetchAppointments();
+      if (data?.status === 'in_queue') {
+        const apt = appointments.find(a => a._id === data.appointmentId);
+        if (apt) {
+          sendQueueUpdateNotification(apt, 0, data.estimatedWaitTime || 15);
+        }
+      }
+    });
+
+    return () => newSocket.close();
+  }, [socketUrl, fetchAppointments, appointments]);
+
+  const loadRazorpayScript = () => {
+    return new Promise((resolve, reject) => {
+      if (window.Razorpay) {
+        resolve();
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('Failed to load Razorpay SDK'));
+      document.body.appendChild(script);
+    });
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'pending': return 'dark:bg-slate-700 dark:text-slate-200 bg-slate-100 text-slate-800';
-      case 'confirmed': return 'dark:bg-blue-900 dark:text-blue-200 bg-blue-100 text-blue-800';
-      case 'checked_in': return 'dark:bg-cyan-900 dark:text-cyan-200 bg-cyan-100 text-cyan-800';
-      case 'in_queue': return 'dark:bg-yellow-900 dark:text-yellow-200 bg-yellow-100 text-yellow-800';
-      case 'consulting': return 'dark:bg-orange-900 dark:text-orange-200 bg-orange-100 text-orange-800';
-      case 'completed': return 'dark:bg-green-900 dark:text-green-200 bg-green-100 text-green-800';
-      case 'cancelled': return 'dark:bg-red-900 dark:text-red-200 bg-red-100 text-red-800';
-      case 'booked': return 'dark:bg-blue-900 dark:text-blue-200 bg-blue-100 text-blue-800';
-      case 'waiting': return 'dark:bg-yellow-900 dark:text-yellow-200 bg-yellow-100 text-yellow-800';
-      case 'ongoing': return 'dark:bg-orange-900 dark:text-orange-200 bg-orange-100 text-orange-800';
-      default: return 'dark:bg-slate-700 dark:text-slate-200 bg-gray-100 text-gray-800';
+  const handlePayNow = async (apt) => {
+    setPayingId(apt._id);
+    try {
+      const res = await axios.post('/api/payments/create-order', {
+        appointmentId: apt._id,
+        amount: 500
+      });
+
+      if (res.data.mock) {
+        alert(res.data.message || 'Payment completed in Instant Mock Mode!');
+        await fetchAppointments();
+        if (selectedApt && selectedApt._id === apt._id) {
+          setSelectedApt(prev => ({
+            ...prev,
+            payment: { ...prev.payment, status: 'paid' },
+            status: 'confirmed'
+          }));
+        }
+        return;
+      }
+
+      await loadRazorpayScript();
+
+      const options = {
+        key: res.data.key,
+        amount: res.data.amount,
+        currency: res.data.currency,
+        order_id: res.data.orderId,
+        name: 'MediQueue Care',
+        description: 'Consultation Fee',
+        handler: async function (response) {
+          try {
+            await axios.post('/api/payments/verify', {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature
+            });
+            alert('Payment successful! Appointment confirmed.');
+            await fetchAppointments();
+            if (selectedApt && selectedApt._id === apt._id) {
+              setSelectedApt(prev => ({
+                ...prev,
+                payment: { ...prev.payment, status: 'paid' },
+                status: 'confirmed'
+              }));
+            }
+          } catch (err) {
+            console.error('Payment verification failed:', err);
+            alert('Payment verification failed. Please contact clinic reception.');
+          }
+        },
+        prefill: {
+          name: apt.patientName,
+          contact: apt.contact
+        },
+        theme: {
+          color: '#2563EB'
+        }
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+    } catch (err) {
+      console.error('Error initiating payment:', err);
+      alert('Could not initiate payment. Falling back to reception pay.');
+    } finally {
+      setPayingId(null);
     }
   };
 
-  const getStatusLabel = (status) => {
+  const cancelAppointment = async (id) => {
+    if (!window.confirm('Are you sure you want to cancel this appointment and release your queue token?')) return;
+    try {
+      await axios.put(`/api/appointments/${id}/cancel`);
+      fetchAppointments();
+    } catch (error) {
+      console.error('Error cancelling appointment:', error);
+      alert('Failed to cancel appointment');
+    }
+  };
+
+  const getStatusBadge = (status) => {
     switch (status) {
-      case 'pending': return '⏳ Pending';
-      case 'confirmed': return '✅ Confirmed';
-      case 'checked_in': return '📍 Checked-In';
-      case 'in_queue': return '👥 In Queue';
-      case 'consulting': return '👨‍⚕️ Consulting';
-      case 'completed': return '✔️ Completed';
-      case 'cancelled': return '❌ Cancelled';
-      case 'booked': return '📅 Booked';
-      case 'waiting': return '⏳ Waiting';
-      case 'ongoing': return '🔄 Ongoing';
-      default: return 'Unknown';
+      case 'confirmed':
+        return 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 border-blue-200 dark:border-blue-800';
+      case 'checked_in':
+        return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800';
+      case 'in_queue':
+        return 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300 border-amber-200 dark:border-amber-800';
+      case 'consulting':
+        return 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300 border-purple-200 dark:border-purple-800';
+      case 'completed':
+        return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800';
+      case 'cancelled':
+        return 'bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-300 border-rose-200 dark:border-rose-800';
+      default:
+        return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700';
     }
   };
 
   const getWaitTimeEstimate = (apt) => {
-    // Use AI to predict wait time
-    if (apt.doctor) {
-      return predictWaitTime([], apt.doctor, 1);
-    }
-    return apt.estimatedWaitTime || 0;
-  };
-
-  const cancelAppointment = async (appointmentId) => {
-    if (!window.confirm('Are you sure you want to cancel this appointment?')) {
-      return;
-    }
-
-    try {
-      await axios.delete(`/api/appointments/${appointmentId}`);
-      // Refresh appointments list
-      fetchAppointments();
-      alert('Appointment cancelled successfully');
-    } catch (error) {
-      console.error('Error cancelling appointment:', error);
-      alert(error.response?.data?.message || 'Failed to cancel appointment');
-    }
+    if (apt.estimatedWaitTime) return apt.estimatedWaitTime;
+    const prediction = predictWaitTime({
+      aheadInQueue: Math.max(0, (apt.tokenNumber || 1) - 1),
+      avgDoctorTime: 12,
+      emergencyDelay: 0
+    });
+    return prediction.estimatedWaitMinutes;
   };
 
   if (loading) {
-    return <div className="text-center p-8 dark:text-slate-300">⏳ Loading appointments...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 p-8">
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-4xl font-bold text-center mb-12 dark:text-white">📅 My Appointments</h1>
-
-        {appointments.length === 0 ? (
-          <div className="text-center bg-blue-50 dark:bg-slate-800 rounded-lg p-12">
-            <p className="text-lg dark:text-slate-300">No appointments found. Let's book one!</p>
+    <div className="space-y-8">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 text-xs font-bold mb-2">
+            <FiActivity className="w-3.5 h-3.5" />
+            <span>Digital Appointment Wallet</span>
           </div>
-        ) : (
-          <div className="space-y-6">
-            {appointments.map((appointment) => (
+          <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+            My Appointments & Tokens
+          </h1>
+          <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm">
+            Live queue position, contactless QR passes, and WebRTC video consultations.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Link
+            to="/track-token"
+            className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-2xl text-xs font-bold transition flex items-center gap-2 shadow-lg shadow-blue-500/25"
+          >
+            <FiCompass className="w-4 h-4" />
+            <span>Track Token Radar</span>
+          </Link>
+
+          <Link
+            to="/doctors"
+            className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-2xl text-xs font-bold transition flex items-center gap-2 border border-slate-200 dark:border-slate-700"
+          >
+            <FaUserMd className="w-3.5 h-3.5 text-blue-500" />
+            <span>Book New</span>
+          </Link>
+        </div>
+      </div>
+
+      {appointments.length === 0 ? (
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-12 text-center border border-slate-200 dark:border-slate-800 shadow-md">
+          <div className="w-16 h-16 rounded-3xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 flex items-center justify-center mx-auto mb-4">
+            <FiCalendar className="w-8 h-8" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">
+            No Appointments Found
+          </h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto mb-6">
+            You don&apos;t have any active or past appointments registered with this profile.
+          </p>
+          <Link
+            to="/doctors"
+            className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-6 py-3 rounded-2xl shadow-lg shadow-blue-500/20 transition"
+          >
+            <span>Explore Gwalior Specialists</span>
+            <FiArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {appointments.map((appointment) => {
+            const isPaid = appointment.payment?.status === 'paid';
+            const isActive = !['completed', 'cancelled'].includes(appointment.status);
+            const isCheckedIn = appointment.checkInStatus === 'arrived';
+
+            return (
               <div
                 key={appointment._id}
-                className="bg-white dark:bg-slate-800 rounded-lg shadow-md dark:shadow-slate-900 p-6 hover:shadow-lg dark:hover:shadow-slate-800 transition-shadow"
+                className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-md hover:shadow-xl transition-all duration-200 flex flex-col justify-between"
               >
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h2 className="text-2xl font-semibold dark:text-white">{appointment.doctor.name}</h2>
-                    <p className="text-gray-600 dark:text-slate-400">{appointment.doctor.specialization}</p>
+                <div>
+                  {/* Top Row: Token & Status */}
+                  <div className="flex items-center justify-between mb-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-black text-lg flex items-center justify-center shadow-inner">
+                        #{appointment.tokenNumber}
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                          Queue Token
+                        </span>
+                        <span className="text-sm font-bold text-slate-900 dark:text-white">
+                          Token #{appointment.tokenNumber}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col items-end gap-1">
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold border ${getStatusBadge(appointment.status)}`}>
+                        {appointment.status.replace('_', ' ').toUpperCase()}
+                      </span>
+                      {isCheckedIn && (
+                        <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full">
+                          ✓ Arrived at Clinic
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <span className={`px-4 py-2 rounded-full text-sm font-medium ${getStatusColor(appointment.status)}`}>
-                    {getStatusLabel(appointment.status)}
-                  </span>
+
+                  {/* Doctor Info */}
+                  <div className="flex items-start gap-4 mb-4">
+                    <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 font-bold shrink-0">
+                      {appointment.doctor?.image ? (
+                        <img
+                          src={appointment.doctor.image}
+                          alt={appointment.doctor.name}
+                          className="w-full h-full object-cover rounded-2xl"
+                        />
+                      ) : (
+                        <FaUserMd className="w-5 h-5 text-blue-500" />
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                        {appointment.doctor?.name || 'Dr. Specialist'}
+                      </h3>
+                      <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                        {appointment.doctor?.specialization || 'Consultant'}
+                      </p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Patient: {appointment.patientName}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Date, Time & AI Wait Info */}
+                  <div className="grid grid-cols-2 gap-2 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 mb-5 text-xs">
+                    <div className="flex items-center gap-2">
+                      <FiCalendar className="w-4 h-4 text-slate-400 shrink-0" />
+                      <div>
+                        <span className="text-[10px] text-slate-400 block">Date</span>
+                        <span className="font-bold text-slate-700 dark:text-slate-200">
+                          {new Date(appointment.date).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <FiClock className="w-4 h-4 text-slate-400 shrink-0" />
+                      <div>
+                        <span className="text-[10px] text-slate-400 block">Time Slot</span>
+                        <span className="font-bold text-slate-700 dark:text-slate-200">
+                          {appointment.time}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                  <div className="bg-slate-50 dark:bg-slate-700 p-3 rounded">
-                    <p className="text-sm text-gray-600 dark:text-slate-400">📅 Date</p>
-                    <p className="font-semibold dark:text-slate-100">{new Date(appointment.date).toLocaleDateString()}</p>
-                  </div>
-                  <div className="bg-slate-50 dark:bg-slate-700 p-3 rounded">
-                    <p className="text-sm text-gray-600 dark:text-slate-400">🕐 Time</p>
-                    <p className="font-semibold dark:text-slate-100">{appointment.time}</p>
-                  </div>
-                  <div className="bg-slate-50 dark:bg-slate-700 p-3 rounded">
-                    <p className="text-sm text-gray-600 dark:text-slate-400">🎫 Token</p>
-                    <p className="font-bold text-lg dark:text-slate-100">{appointment.tokenNumber}</p>
-                  </div>
-                  <div className="bg-slate-50 dark:bg-slate-700 p-3 rounded">
-                    <p className="text-sm text-gray-600 dark:text-slate-400">💳 Payment</p>
-                    <p className={`font-semibold ${appointment.payment?.status === 'paid' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                      {appointment.payment?.status === 'paid' ? '✅ Paid' : '⏳ Pending'}
-                    </p>
-                  </div>
-                </div>
+                {/* Action Buttons */}
+                <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Track Live Token Direct Radar Button */}
+                    {isActive && (
+                      <button
+                        onClick={() => navigate(`/track-token?appointmentId=${appointment._id}`)}
+                        className="flex-1 min-w-[140px] py-2.5 px-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-500/20 flex items-center justify-center gap-1.5 transition"
+                      >
+                        <FiCompass className="w-3.5 h-3.5" />
+                        <span>Track Live Token</span>
+                      </button>
+                    )}
 
-                {['in_queue', 'confirmed', 'checked_in', 'booked', 'waiting', 'ongoing'].includes(appointment.status) && (
-                  <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700/50 rounded-lg p-4 mb-4">
-                    <p className="text-blue-900 dark:text-blue-300 text-sm font-medium">
-                      ⏱️ <strong>Estimated wait time:</strong> {getWaitTimeEstimate(appointment)} minutes
-                    </p>
-                  </div>
-                )}
+                    {/* QR Check-In Pass Button */}
+                    <button
+                      onClick={() => setQrPassApt(appointment)}
+                      className="py-2.5 px-3 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 font-bold text-xs rounded-xl border border-emerald-200 dark:border-emerald-800 transition flex items-center gap-1.5"
+                    >
+                      <FiCamera className="w-3.5 h-3.5" />
+                      <span>QR Pass</span>
+                    </button>
 
-                <div className="flex gap-3">
-                  {appointment.status === 'in_queue' && (
-                    <button
-                      onClick={() => setSelectedApt(appointment)}
-                      className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 hover:from-blue-600 hover:to-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition"
+                    {/* Telemedicine Video Room Button */}
+                    <Link
+                      to={`/telemedicine/${appointment._id}`}
+                      className="py-2.5 px-3 bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 text-purple-700 dark:text-purple-300 font-bold text-xs rounded-xl border border-purple-200 dark:border-purple-800 transition flex items-center gap-1.5"
+                      title="Join Telemedicine Video Call"
                     >
-                      📍 Check Queue Position
-                    </button>
-                  )}
-                  {!['completed', 'cancelled'].includes(appointment.status) && (
-                    <button
-                      onClick={() => cancelAppointment(appointment._id)}
-                      className="flex-1 bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition"
-                    >
-                      ❌ Cancel Appointment
-                    </button>
-                  )}
+                      <FiVideo className="w-3.5 h-3.5" />
+                      <span>Video</span>
+                    </Link>
+
+                    {/* Pay Now Button */}
+                    {!isPaid && isActive && (
+                      <button
+                        onClick={() => handlePayNow(appointment)}
+                        disabled={payingId === appointment._id}
+                        className="py-2.5 px-3 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"
+                      >
+                        <FiCreditCard className="w-3.5 h-3.5" />
+                        <span>{payingId === appointment._id ? 'Processing...' : 'Pay ₹500'}</span>
+                      </button>
+                    )}
+
+                    {/* Cancel */}
+                    {isActive && (
+                      <button
+                        onClick={() => cancelAppointment(appointment._id)}
+                        className="py-2.5 px-3 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 text-rose-600 dark:text-rose-400 text-xs font-semibold rounded-xl border border-rose-200 dark:border-rose-900/60 transition flex items-center gap-1"
+                      >
+                        <FiTrash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
-            ))}
+            );
+          })}
+        </div>
+      )}
+
+      {/* QR Check-In Card Modal */}
+      {qrPassApt && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 relative">
+            <button
+              onClick={() => setQrPassApt(null)}
+              className="absolute top-4 right-4 p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition"
+            >
+              <FiX className="text-xl" />
+            </button>
+            <div className="mb-4">
+              <h3 className="font-bold text-lg text-slate-900 dark:text-white">
+                Contactless Check-In Pass
+              </h3>
+              <p className="text-xs text-slate-500">Scan at clinic kiosk or enter 6-digit PIN</p>
+            </div>
+            <QRCheckInCard appointment={qrPassApt} />
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };

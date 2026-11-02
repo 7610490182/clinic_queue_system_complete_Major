@@ -177,7 +177,7 @@ export const sendDoctorAnalyticsNotification = async (doctorData) => {
     sendNotification({
       type: 'analytics',
       title: '📈 Your Daily Performance',
-      message: message,
+      message: message + report,
       doctorId: doctorData._id,
       recipient: doctorData.email
     });

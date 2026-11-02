@@ -43,8 +43,7 @@ export const recommendBestSlots = (availableSlots, historicalData = []) => {
       let score = 100;
       
       // Parse time
-      const [hours, minutes] = slot.split(':').map(Number);
-      const timeInMinutes = hours * 60 + minutes;
+      const [hours] = slot.split(':').map(Number);
       
       // Prefer mid-morning and early afternoon (lower congestion)
       if ((hours >= 10 && hours < 12) || (hours >= 14 && hours < 15)) {

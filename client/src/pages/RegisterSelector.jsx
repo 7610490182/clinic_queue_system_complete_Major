@@ -1,69 +1,114 @@
 import { Link } from 'react-router-dom';
+import { FiUser, FiActivity, FiShield, FiArrowRight, FiCheckCircle } from 'react-icons/fi';
 
 const RegisterSelector = () => {
+  const roles = [
+    {
+      title: 'Patient',
+      description: 'Create your digital patient profile, book doctor slots & get notified in real-time.',
+      link: '/register/patient',
+      icon: <FiUser className="w-8 h-8" />,
+      color: 'from-blue-500 to-indigo-600',
+      badge: 'Free Patient Account',
+      features: ['Digital Health Card & QR', 'Real-time Queue Status', 'Smart AI Symptom Helper']
+    },
+    {
+      title: 'Doctor',
+      description: 'Doctor accounts are provisioned exclusively through authorized Clinic Admin workflow.',
+      link: '/login/doctor',
+      icon: <FiActivity className="w-8 h-8" />,
+      color: 'from-purple-500 to-indigo-600',
+      badge: 'Admin Provisioned Only',
+      buttonText: 'Doctor Login Portal',
+      features: ['Automated Token Dispatch', 'Patient History Access', 'Custom Chamber Timings']
+    },
+    {
+      title: 'Administrator',
+      description: 'Administrative access is strictly managed by clinic supervisory staff.',
+      link: '/login/admin',
+      icon: <FiShield className="w-8 h-8" />,
+      color: 'from-rose-500 to-orange-600',
+      badge: 'Protected Portal',
+      buttonText: 'Admin Login Portal',
+      features: ['Doctor Account Provisioning', 'Clinic Working Hours & Triage', 'Audit Trail & Compliance']
+    }
+  ];
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-600 to-green-900 flex items-center justify-center py-12 px-4">
-      <div className="w-full max-w-2xl">
-        <div className="text-center mb-16">
-          <div className="text-7xl mb-4">🏥</div>
-          <h1 className="text-5xl font-bold text-white mb-4">Join MediQueue</h1>
-          <p className="text-2xl text-green-100">Select Your Role to Register</p>
+    <div className="min-h-[85vh] flex flex-col justify-center items-center py-12 px-4">
+      <div className="w-full max-w-5xl">
+        {/* Header */}
+        <div className="text-center mb-12">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 mb-3">
+            <FiCheckCircle className="w-3.5 h-3.5" />
+            Fast & Free Account Setup
+          </span>
+          <h1 className="text-4xl md:text-5xl font-black text-slate-900 dark:text-white tracking-tight">
+            Join the <span className="bg-gradient-to-r from-blue-600 to-teal-500 bg-clip-text text-transparent">MediQueue Care</span> Network
+          </h1>
+          <p className="text-slate-600 dark:text-slate-400 text-base max-w-lg mx-auto mt-3">
+            Select your account type to set up your credentials and start queueing effortlessly.
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Patient Register */}
-          <Link
-            to="/register/patient"
-            className="group"
-          >
-            <div className="bg-gradient-to-br from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 p-10 rounded-2xl shadow-xl hover:shadow-2xl transition transform hover:scale-105 duration-300 cursor-pointer h-full flex flex-col items-center justify-center text-center text-white"
+        {/* Roles Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {roles.map((role) => (
+            <Link
+              key={role.title}
+              to={role.link}
+              className="group relative bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-200 dark:border-slate-800 shadow-xl hover:shadow-2xl hover:border-blue-500/50 dark:hover:border-blue-500/50 transition-all duration-300 flex flex-col justify-between"
             >
-              <div className="text-6xl mb-4 group-hover:scale-125 transition">👤</div>
-              <h2 className="text-3xl font-bold mb-3">Patient</h2>
-              <p className="text-blue-100 mb-6">Book appointments and manage your health</p>
-              <div className="bg-white bg-opacity-20 px-4 py-2 rounded-lg text-sm font-semibold">
-                Register as Patient
-              </div>
-            </div>
-          </Link>
+              <div>
+                {/* Icon & Badge */}
+                <div className="flex items-center justify-between mb-6">
+                  <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${role.color} text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                    {role.icon}
+                  </div>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-full">
+                    {role.badge}
+                  </span>
+                </div>
 
-          {/* Doctor Register */}
-          <Link
-            to="/register/doctor"
-            className="group"
-          >
-            <div className="bg-gradient-to-br from-purple-400 to-purple-600 hover:from-purple-500 hover:to-purple-700 p-10 rounded-2xl shadow-xl hover:shadow-2xl transition transform hover:scale-105 duration-300 cursor-pointer h-full flex flex-col items-center justify-center text-center text-white"
-            >
-              <div className="text-6xl mb-4 group-hover:scale-125 transition">👨‍⚕️</div>
-              <h2 className="text-3xl font-bold mb-3">Doctor</h2>
-              <p className="text-purple-100 mb-6">Manage appointments and patients</p>
-              <div className="bg-white bg-opacity-20 px-4 py-2 rounded-lg text-sm font-semibold">
-                Register as Doctor
-              </div>
-            </div>
-          </Link>
+                {/* Content */}
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                  {role.title} Sign Up
+                </h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
+                  {role.description}
+                </p>
 
-          {/* Admin Register */}
-          <Link
-            to="/register/admin"
-            className="group"
-          >
-            <div className="bg-gradient-to-br from-red-400 to-red-600 hover:from-red-500 hover:to-red-700 p-10 rounded-2xl shadow-xl hover:shadow-2xl transition transform hover:scale-105 duration-300 cursor-pointer h-full flex flex-col items-center justify-center text-center text-white"
-            >
-              <div className="text-6xl mb-4 group-hover:scale-125 transition">👑</div>
-              <h2 className="text-3xl font-bold mb-3">Admin</h2>
-              <p className="text-red-100 mb-6">Manage system and all operations</p>
-              <div className="bg-white bg-opacity-20 px-4 py-2 rounded-lg text-sm font-semibold">
-                Register as Admin
+                {/* Feature checklist */}
+                <div className="space-y-2 mb-8 pt-4 border-t border-slate-100 dark:border-slate-800">
+                  {role.features.map((feat) => (
+                    <div key={feat} className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                      <FiCheckCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                      <span>{feat}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          </Link>
+
+              {/* Action */}
+              <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800 text-sm font-bold text-blue-600 dark:text-blue-400 group-hover:translate-x-1 transition-transform">
+                <span>{role.buttonText || `Register as ${role.title}`}</span>
+                <FiArrowRight className="w-4 h-4" />
+              </div>
+            </Link>
+          ))}
         </div>
 
-        <div className="text-center mt-12">
-          <p className="text-green-100 text-lg mb-4">Already have an account?</p>
-          <Link to="/login" className="bg-white text-green-600 hover:bg-gray-100 px-8 py-3 rounded-lg font-bold transition">
-            Login Here
+        {/* Footer / Switch link */}
+        <div className="text-center mt-12 bg-white dark:bg-slate-900/60 rounded-2xl p-6 border border-slate-200 dark:border-slate-800/80 max-w-xl mx-auto shadow-sm">
+          <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
+            Already have an active account?
+          </p>
+          <Link
+            to="/login"
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            <span>Log in to your portal</span>
+            <FiArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
       </div>
