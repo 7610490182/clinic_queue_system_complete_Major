@@ -341,7 +341,9 @@ async function runTestSuite() {
         abhaAddress: 'kushwahamit7610@abdm'
       });
 
-      const fhirRes = await makeRequest(`/api/fhir/bundle/${patientUserId}`);
+      const fhirRes = await makeRequest(`/api/fhir/bundle/${patientUserId}`, 'GET', null, {
+        'Authorization': 'Bearer ' + (adminToken || doctorToken)
+      });
 
       const valid = abhaRes.status === 200 &&
                     abhaRes.data.valid &&

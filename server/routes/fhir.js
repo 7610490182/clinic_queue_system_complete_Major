@@ -134,10 +134,10 @@ router.get('/bundle/:id', auth, async (req, res) => {
 });
 
 /**
- * POST /api/fhir/validate-abha
- * Mock ABHA Address / ID validation endpoint
+ * POST /api/fhir/validate-abha and POST /api/fhir/verify-abha
+ * ABDM Mock ABHA Address / ID validation endpoint
  */
-router.post('/validate-abha', auth, async (req, res) => {
+router.post(['/validate-abha', '/verify-abha'], async (req, res) => {
   try {
     const { abhaId, abhaAddress } = req.body;
     let idValid = true;
@@ -148,6 +148,8 @@ router.post('/validate-abha', auth, async (req, res) => {
 
     res.json({
       valid: idValid && addrValid,
+      abhaId,
+      abhaAddress,
       abhaIdValid: idValid,
       abhaAddressValid: addrValid,
       gatewayResponse: {
