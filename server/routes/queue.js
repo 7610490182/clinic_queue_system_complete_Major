@@ -207,7 +207,7 @@ router.post('/:appointmentId/status', auth, authorizeRoles('admin', 'doctor'), a
 
     // If doctor, verify this appointment belongs to their chamber
     if (req.user.role === 'doctor') {
-      const doctorRecord = await Doctor.findOne({ email: req.user.email });
+      const doctorRecord = await Doctor.findOne({ $or: [{ email: req.user.email }, { name: req.user.name }] });
       if (!doctorRecord || String(appointment.doctor) !== String(doctorRecord._id)) {
         return res.status(403).json({ message: 'Access denied. You can only update appointments for your own chamber.' });
       }

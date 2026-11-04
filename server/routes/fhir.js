@@ -28,7 +28,7 @@ router.get('/patient/:id', auth, async (req, res) => {
     }
 
     if (req.user.role === 'doctor') {
-      const doctorRecord = await Doctor.findOne({ email: req.user.email });
+      const doctorRecord = await Doctor.findOne({ $or: [{ email: req.user.email }, { name: req.user.name }] });
       const hasAppointment = await Appointment.findOne({ doctor: doctorRecord?._id, patient: targetUserId });
       if (!hasAppointment) {
         return res.status(403).json({ message: 'Access denied. You are not authorized for this patient\'s records.' });
@@ -119,7 +119,7 @@ router.get('/bundle/:id', auth, async (req, res) => {
     }
 
     if (req.user.role === 'doctor') {
-      const doctorRecord = await Doctor.findOne({ email: req.user.email });
+      const doctorRecord = await Doctor.findOne({ $or: [{ email: req.user.email }, { name: req.user.name }] });
       if (!doctorRecord || String(appointment.doctor?._id || appointment.doctor) !== String(doctorRecord._id)) {
         return res.status(403).json({ message: 'Access denied. You are not authorized for this appointment bundle.' });
       }

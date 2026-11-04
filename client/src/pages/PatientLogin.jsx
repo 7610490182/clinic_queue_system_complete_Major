@@ -18,7 +18,7 @@ import {
 
 const PatientLogin = () => {
   const [formData, setFormData] = useState({
-    email: '',
+    email: 'patient@clinic.com',
     password: ''
   });
   const [error, setError] = useState('');
@@ -223,6 +223,29 @@ const PatientLogin = () => {
               </form>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-5">
+                {/* 1-Click Demo Fill */}
+                <div className="p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 rounded-2xl text-xs">
+                  <div className="font-bold text-blue-900 dark:text-blue-200 mb-1.5 flex items-center gap-1.5">
+                    <FiKey className="text-blue-600" /> Quick Demo Patient Logins:
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ email: 'patient@clinic.com', password: 'patient123' })}
+                      className="px-2.5 py-1 bg-white dark:bg-slate-800 text-blue-700 dark:text-blue-300 font-semibold rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-100 transition text-[11px]"
+                    >
+                      Demo Patient (patient@clinic.com)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ email: 'kushwahamit7610@gmail.com', password: 'patient123' })}
+                      className="px-2.5 py-1 bg-white dark:bg-slate-800 text-blue-700 dark:text-blue-300 font-semibold rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-100 transition text-[11px]"
+                    >
+                      Amit Kushwah (kushwahamit7610@gmail.com)
+                    </button>
+                  </div>
+                </div>
+
                 <div>
                   <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
                     <FiMail className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />

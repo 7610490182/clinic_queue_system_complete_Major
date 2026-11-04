@@ -22,7 +22,7 @@ router.get('/my', auth, async (req, res) => {
 // Get appointments for current doctor (Doctor only)
 router.get('/doctor', auth, authorizeRoles('doctor'), async (req, res) => {
   try {
-    const doctorRecord = await Doctor.findOne({ email: req.user.email });
+    const doctorRecord = await Doctor.findOne({ $or: [{ email: req.user.email }, { name: req.user.name }] });
     if (!doctorRecord) {
       return res.status(404).json({ message: 'Doctor profile not found' });
     }
@@ -68,7 +68,7 @@ router.get('/doctor', auth, authorizeRoles('doctor'), async (req, res) => {
 // Call next patient for current doctor (Strictly Doctor only - Admin & Patients forbidden)
 router.post('/call-next', auth, authorizeRoles('doctor'), async (req, res) => {
   try {
-    const doctorRecord = await Doctor.findOne({ email: req.user.email });
+    const doctorRecord = await Doctor.findOne({ $or: [{ email: req.user.email }, { name: req.user.name }] });
     if (!doctorRecord) {
       return res.status(404).json({ message: 'Doctor profile not found' });
     }
@@ -128,7 +128,7 @@ router.post('/call-next', auth, authorizeRoles('doctor'), async (req, res) => {
 // Complete the current appointment (Strictly Doctor assigned to this appointment)
 router.post('/complete/:id', auth, authorizeRoles('doctor'), async (req, res) => {
   try {
-    const doctorRecord = await Doctor.findOne({ email: req.user.email });
+    const doctorRecord = await Doctor.findOne({ $or: [{ email: req.user.email }, { name: req.user.name }] });
     if (!doctorRecord) {
       return res.status(404).json({ message: 'Doctor profile not found' });
     }
@@ -208,7 +208,7 @@ router.get('/:id', auth, async (req, res) => {
         });
       }
     } else if (req.user.role === 'doctor') {
-      const doctorRecord = await Doctor.findOne({ email: req.user.email });
+      const doctorRecord = await Doctor.findOne({ $or: [{ email: req.user.email }, { name: req.user.name }] });
       const doctorId = appointment.doctor?._id || appointment.doctor;
       if (!doctorRecord || String(doctorId) !== String(doctorRecord._id)) {
         return res.status(403).json({
@@ -416,7 +416,7 @@ router.get('/queue/:doctorId/:date', auth, async (req, res) => {
     }
 
     if (req.user.role === 'doctor') {
-      const doctorRecord = await Doctor.findOne({ email: req.user.email });
+      const doctorRecord = await Doctor.findOne({ $or: [{ email: req.user.email }, { name: req.user.name }] });
       if (!doctorRecord || String(doctorRecord._id) !== String(doctorId)) {
         return res.status(403).json({ message: 'Access denied. You can only view your own chamber queue.' });
       }

@@ -91,7 +91,7 @@ router.post('/prescription/:appointmentId', auth, authorizeRoles('doctor'), asyn
     }
 
     // Verify assigned doctor
-    const doctorRecord = await Doctor.findOne({ email: req.user.email });
+    const doctorRecord = await Doctor.findOne({ $or: [{ email: req.user.email }, { name: req.user.name }] });
     const doctorId = appointment.doctor?._id || appointment.doctor;
     if (!doctorRecord || String(doctorId) !== String(doctorRecord._id)) {
       return res.status(403).json({

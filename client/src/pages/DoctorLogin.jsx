@@ -17,7 +17,7 @@ import {
 
 const DoctorLogin = () => {
   const [formData, setFormData] = useState({
-    email: '',
+    email: 'dr.akash@clinic.com',
     password: ''
   });
   const [error, setError] = useState('');
@@ -221,6 +221,29 @@ const DoctorLogin = () => {
               </form>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-5">
+                {/* 1-Click Demo Fill */}
+                <div className="p-3 bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-900 rounded-2xl text-xs">
+                  <div className="font-bold text-purple-900 dark:text-purple-200 mb-1.5 flex items-center gap-1.5">
+                    <FiKey className="text-purple-600" /> Quick Demo Doctor Logins:
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ email: 'dr.akash@clinic.com', password: 'doctor123' })}
+                      className="px-2.5 py-1 bg-white dark:bg-slate-800 text-purple-700 dark:text-purple-300 font-semibold rounded-lg border border-purple-200 dark:border-purple-800 hover:bg-purple-100 transition text-[11px]"
+                    >
+                      Dr. Akash Modi (Cardio)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ email: 'dr.vipin@clinic.com', password: 'doctor123' })}
+                      className="px-2.5 py-1 bg-white dark:bg-slate-800 text-purple-700 dark:text-purple-300 font-semibold rounded-lg border border-purple-200 dark:border-purple-800 hover:bg-purple-100 transition text-[11px]"
+                    >
+                      Dr. Vipin Garg (Ortho)
+                    </button>
+                  </div>
+                </div>
+
                 <div>
                   <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
                     <FiMail className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />

@@ -28,7 +28,7 @@ router.get('/:id', auth, async (req, res) => {
     if (req.user.role === 'doctor') {
       // Check if doctor has an appointment with this patient
       const Doctor = require('../models/Doctor');
-      const doctor = await Doctor.findOne({ email: req.user.email });
+      const doctor = await Doctor.findOne({ $or: [{ email: req.user.email }, { name: req.user.name }] });
       if (!doctor) {
         return res.status(403).json({ message: 'Doctor profile not found.' });
       }

@@ -297,6 +297,14 @@ async function runTestSuite() {
       });
 
       const valid = toggleRes.status === 200 && exportRes.status === 200 && exportRes.data.exportMetadata;
+
+      // Ensure admin 2FA is restored to false so local login remains effortless
+      if (toggleRes.data?.twoFactorEnabled) {
+        await makeRequest('/api/auth/2fa/toggle', 'POST', {}, {
+          'Authorization': 'Bearer ' + adminToken
+        });
+      }
+
       recordResult(
         8,
         'Healthcare-Grade Security (2FA) & DPDP Compliance Audit Trail',

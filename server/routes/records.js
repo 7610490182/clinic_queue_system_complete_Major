@@ -25,7 +25,7 @@ router.get('/timeline/:patientId', auth, async (req, res) => {
     }
 
     if (req.user.role === 'doctor') {
-      const doctorRecord = await Doctor.findOne({ email: req.user.email });
+      const doctorRecord = await Doctor.findOne({ $or: [{ email: req.user.email }, { name: req.user.name }] });
       if (doctorRecord) {
         const hasAppointment = await Appointment.findOne({
           doctor: doctorRecord._id,

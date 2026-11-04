@@ -221,6 +221,23 @@ const AdminLogin = () => {
               </form>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-5">
+                {/* 1-Click Demo Fill */}
+                <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 rounded-2xl text-xs flex items-center justify-between">
+                  <div>
+                    <div className="font-bold text-rose-900 dark:text-rose-200 flex items-center gap-1.5">
+                      <FiKey className="text-rose-600" /> Default Admin: <span className="font-mono">admin@clinic.com</span>
+                    </div>
+                    <div className="text-[11px] text-slate-500">Password: <span className="font-mono">admin123</span></div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ email: 'admin@clinic.com', password: 'admin123' })}
+                    className="px-3 py-1 bg-white dark:bg-slate-800 text-rose-700 dark:text-rose-300 font-bold rounded-lg border border-rose-200 dark:border-rose-800 hover:bg-rose-100 transition text-[11px]"
+                  >
+                    Auto-Fill
+                  </button>
+                </div>
+
                 <div>
                   <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
                     <FiMail className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
