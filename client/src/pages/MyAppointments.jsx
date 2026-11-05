@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import io from 'socket.io-client';
+import { getSocketUrl } from '../config';
 import { predictWaitTime } from '../services/aiService';
 import { sendQueueUpdateNotification } from '../services/notificationService';
 import QRCheckInCard from '../components/QRCheckInCard';
@@ -32,7 +33,7 @@ const MyAppointments = () => {
   const [qrPassApt, setQrPassApt] = useState(null);
   const [payingId, setPayingId] = useState(null);
   const navigate = useNavigate();
-  const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+  const socketUrl = getSocketUrl();
 
   const fetchAppointments = useCallback(async () => {
     try {

@@ -10,9 +10,9 @@ server/.env
 client/.env
 
 # Build outputs
-dist/
+# dist/
 build/
-client/dist/
+# client/dist/
 
 # Logs
 *.log

@@ -7,7 +7,8 @@ const socketIo = require('socket.io');
 const path = require('path');
 const fs = require('fs');
 
-// Load environment variables
+// Load environment variables (from server/.env and root .env)
+dotenv.config({ path: path.join(__dirname, '.env') });
 dotenv.config();
 
 // Import routes
@@ -24,16 +25,35 @@ const analyticsRoutes = require('./routes/analytics');
 
 const app = express();
 const server = http.createServer(app);
-const clientOrigin = process.env.CLIENT_URL || 'http://localhost:5173';
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:5000',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:5000',
+  'https://clinic-queue-system-complete-major.onrender.com',
+  process.env.CLIENT_URL
+].filter(Boolean);
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.onrender.com') || origin.includes('localhost')) {
+      return callback(null, true);
+    }
+    return callback(null, true);
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+};
+
 const io = socketIo(server, {
   cors: {
-    origin: clientOrigin,
+    origin: "*",
     methods: ["GET", "POST"]
   }
 });
 
 // Middleware
-app.use(cors({ origin: clientOrigin }));
+app.use(cors(corsOptions));
 app.use(express.json());
 
 const { seedDatabase } = require('./seed');
@@ -106,12 +126,12 @@ const connectDB = async () => {
     await mongoose.connect(uri, connectOptions);
     console.log(`[MongoDB] Successfully connected to MongoDB at ${mongoose.connection.host}:${mongoose.connection.port}/${mongoose.connection.name}`);
 
-    // Check if initial seeding is needed for fresh database
-    const User = require('./models/User');
-    const userCount = await User.countDocuments();
-    if (userCount === 0) {
-      console.log('[MongoDB] Database is fresh and empty. Seeding initial clinic doctors and admin...');
+    // Ensure all verified doctors and standard demo accounts are ready
+    try {
+      console.log('[MongoDB] Ensuring clinic doctors and standard demo login accounts...');
       await seedDatabase({ skipClear: true, closeConnection: false });
+    } catch (seedErr) {
+      console.warn('[MongoDB] Seeding verification notice:', seedErr.message);
     }
   } catch (err) {
     if (isLocal) {
@@ -176,6 +196,19 @@ app.use('/api/telemedicine', telemedicineRoutes);
 app.use('/api/records', recordsRoutes);
 app.use('/api/fhir', fhirRoutes);
 app.use('/api/analytics', analyticsRoutes);
+
+// Serve static client build (production / Render web service deployment)
+const clientDistPath = path.join(__dirname, '..', 'client', 'dist');
+if (fs.existsSync(clientDistPath)) {
+  console.log('[Server] Serving production static assets from:', clientDistPath);
+  app.use(express.static(clientDistPath));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api') || req.path.startsWith('/socket.io')) {
+      return next();
+    }
+    res.sendFile(path.join(clientDistPath, 'index.html'));
+  });
+}
 
 const jwt = require('jsonwebtoken');
 const User = require('./models/User');

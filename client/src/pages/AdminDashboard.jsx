@@ -4,6 +4,7 @@ import axios from 'axios';
 import io from 'socket.io-client';
 import AuditLogViewer from '../components/AuditLogViewer';
 import PasswordInput from '../components/PasswordInput';
+import { getSocketUrl } from '../config';
 
 const AdminDashboard = () => {
   const { user } = useAuth();
@@ -42,7 +43,7 @@ const AdminDashboard = () => {
   });
   const [auditLogs, setAuditLogs] = useState([]);
   const [showAuditLogs, setShowAuditLogs] = useState(false);
-  const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+  const socketUrl = getSocketUrl();
 
   const getStatusColor = (status) => {
     switch (status) {

@@ -846,7 +846,10 @@ async function seedDatabase(options = {}) {
       await User.create(adminUser);
       console.log('Admin user added successfully');
     } else {
-      console.log('Admin user already exists, keeping...');
+      adminExists.twoFactorEnabled = false;
+      adminExists.twoFactorCode = null;
+      await adminExists.save();
+      console.log('Admin user verified & 2FA reset to false');
     }
 
     // Insert real Gwalior doctors
@@ -877,9 +880,13 @@ async function seedDatabase(options = {}) {
 
     // Insert standard demo user logins (admin, doctor, patient)
     for (const demoUser of standardDemoUsers) {
-      const exists = await User.findOne({ email: demoUser.email });
-      if (!exists) {
+      const existingUser = await User.findOne({ email: demoUser.email });
+      if (!existingUser) {
         await User.create(demoUser);
+      } else {
+        existingUser.twoFactorEnabled = false;
+        existingUser.twoFactorCode = null;
+        await existingUser.save();
       }
     }
     console.log('Ensured standard demo accounts (admin@clinic.com, dr.akash@clinic.com, dr.vipin@clinic.com, patient@clinic.com).');

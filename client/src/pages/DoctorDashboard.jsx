@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import io from 'socket.io-client';
 import axios from 'axios';
+import { getSocketUrl } from '../config';
 import {
   FiActivity,
   FiUser,
@@ -46,7 +47,7 @@ const DoctorDashboard = () => {
   const [walkinLoading, setWalkinLoading] = useState(false);
   const [dashboardMessage, setDashboardMessage] = useState('');
 
-  const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+  const socketUrl = getSocketUrl();
 
   const fetchDoctorData = useCallback(async () => {
     try {

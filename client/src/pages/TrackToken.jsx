@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import io from 'socket.io-client';
+import { getSocketUrl } from '../config';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -45,7 +46,7 @@ const TrackToken = () => {
   const [lastRefreshed, setLastRefreshed] = useState(null);
   const [showQRModal, setShowQRModal] = useState(false);
 
-  const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+  const socketUrl = getSocketUrl();
 
   useEffect(() => {
     fetchDoctors();

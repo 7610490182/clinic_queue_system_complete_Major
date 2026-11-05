@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import io from 'socket.io-client';
+import { getSocketUrl } from '../config';
 import { useAuth } from '../context/AuthContext';
 import {
   FiVideo,
@@ -59,7 +60,7 @@ const TelemedicineRoom = () => {
   const socketRef = useRef(null);
   const localStreamRef = useRef(null);
 
-  const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+  const socketUrl = getSocketUrl();
   const isDoctor = user?.role === 'doctor' || user?.role === 'admin';
 
   useEffect(() => {
