@@ -10,7 +10,7 @@ const sampleDoctors = [
     specialization: 'Cardiologist',
     clinic: 'Shreenath Heart Care & Sahara Hospital',
     address: 'Panchwati Nagar, Roshni Ghar Road, Near Achaleshwar Mandir, Lashkar, Gwalior, MP',
-    email: 'dr.akashmodi@gwaliorheart.in',
+    email: 'dr.akash@clinic.com',
     phone: '9826210001',
     profileImage: '',
     rating: 4.9,
@@ -93,7 +93,7 @@ const sampleDoctors = [
     specialization: 'Orthopedic Surgeon',
     clinic: 'KLM Spine Clinic',
     address: 'Saraswati Nagar, University Road, Near Govindpuri, Gwalior, MP',
-    email: 'dr.vipingarg@klmspine.com',
+    email: 'dr.vipin@clinic.com',
     phone: '9826012489',
     profileImage: '',
     rating: 4.9,
@@ -691,35 +691,8 @@ const sampleDoctors = [
   }
 ];
 
-// Standard verified demo accounts for effortless local login
+// Standard demo patients
 const standardDemoUsers = [
-  {
-    name: 'Dr. Akash Modi',
-    email: 'dr.akash@clinic.com',
-    password: 'doctor123',
-    role: 'doctor',
-    phone: '9826210001',
-    isActive: true,
-    twoFactorEnabled: false
-  },
-  {
-    name: 'Dr. Vipin Garg',
-    email: 'dr.vipin@clinic.com',
-    password: 'doctor123',
-    role: 'doctor',
-    phone: '9826012489',
-    isActive: true,
-    twoFactorEnabled: false
-  },
-  {
-    name: 'Dr. Akash Modi',
-    email: 'doctor@clinic.com',
-    password: 'doctor123',
-    role: 'doctor',
-    phone: '9826210001',
-    isActive: true,
-    twoFactorEnabled: false
-  },
   {
     name: 'Amit Kushwah',
     email: 'kushwahamit7610@gmail.com',
@@ -737,52 +710,6 @@ const standardDemoUsers = [
     phone: '9826019999',
     isActive: true,
     twoFactorEnabled: false
-  }
-];
-
-// Standard doctors to ensure doctor records exist for demo logins
-const standardDemoDoctors = [
-  {
-    name: 'Dr. Akash Modi',
-    specialization: 'Cardiologist',
-    clinic: 'Shreenath Heart Care & Sahara Hospital',
-    address: 'Panchwati Nagar, Roshni Ghar Road, Near Achaleshwar Mandir, Lashkar, Gwalior, MP',
-    email: 'dr.akash@clinic.com',
-    phone: '9826210001',
-    profileImage: '',
-    rating: 4.9,
-    reviewCount: 248,
-    experience: 18,
-    timings: { start: '10:00', end: '19:00' },
-    availableDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-  },
-  {
-    name: 'Dr. Vipin Garg',
-    specialization: 'Orthopedic Surgeon',
-    clinic: 'KLM Spine Clinic',
-    address: 'Saraswati Nagar, University Road, Near Govindpuri, Gwalior, MP',
-    email: 'dr.vipin@clinic.com',
-    phone: '9826012489',
-    profileImage: '',
-    rating: 4.9,
-    reviewCount: 312,
-    experience: 20,
-    timings: { start: '10:00', end: '18:00' },
-    availableDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-  },
-  {
-    name: 'Dr. Akash Modi',
-    specialization: 'Cardiologist',
-    clinic: 'Shreenath Heart Care & Sahara Hospital',
-    address: 'Panchwati Nagar, Roshni Ghar Road, Near Achaleshwar Mandir, Lashkar, Gwalior, MP',
-    email: 'doctor@clinic.com',
-    phone: '9826210001',
-    profileImage: '',
-    rating: 4.9,
-    reviewCount: 248,
-    experience: 18,
-    timings: { start: '10:00', end: '19:00' },
-    availableDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
   }
 ];
 
@@ -814,7 +741,7 @@ async function seedDatabase(options = {}) {
       const connectOptions = {
         useNewUrlParser: true,
         useUnifiedTopology: true,
-        serverSelectionTimeoutMS: 8000
+        serverSelectionTimeoutMS: 5000
       };
 
       if (!isLocal) {
@@ -825,8 +752,22 @@ async function seedDatabase(options = {}) {
         connectOptions.ssl = true;
       }
 
-      await mongoose.connect(mongoUri, connectOptions);
-      console.log('Connected to MongoDB for seeding');
+      try {
+        await mongoose.connect(mongoUri, connectOptions);
+        console.log('Connected to MongoDB for seeding');
+      } catch (connErr) {
+        if (!isLocal) {
+          console.warn(`Could not connect to remote Atlas (${connErr.message}). Falling back to local MongoDB...`);
+          await mongoose.connect('mongodb://127.0.0.1:27017/queue_database', {
+            useNewUrlParser: true,
+            useUnifiedTopology: true,
+            serverSelectionTimeoutMS: 5000
+          });
+          console.log('Connected to local MongoDB (127.0.0.1:27017) for seeding');
+        } else {
+          throw connErr;
+        }
+      }
     }
 
     const skipClear = options.skipClear ?? (process.env.SKIP_CLEAR === 'true');
@@ -870,15 +811,16 @@ async function seedDatabase(options = {}) {
     }
     console.log(`Ensured login credentials for all ${sampleDoctorUsers.length} Gwalior doctor accounts (Password: doctor123).`);
 
-    // Insert standard demo doctor profiles
-    for (const demoDoc of standardDemoDoctors) {
-      const exists = await Doctor.findOne({ email: demoDoc.email });
-      if (!exists) {
-        await Doctor.create(demoDoc);
-      }
-    }
+    // Clean up any historical duplicate doctor or test accounts
+    await Doctor.deleteMany({ email: { $in: ['dr.akashmodi@gwaliorheart.in', 'doctor@clinic.com', 'dr.vipingarg@klmspine.com'] } });
+    await User.deleteMany({
+      $or: [
+        { email: { $in: ['dr.akashmodi@gwaliorheart.in', 'doctor@clinic.com', 'dr.vipingarg@klmspine.com'] } },
+        { email: { $regex: /^(test_patient_|race_patient_|walkin_)/ } }
+      ]
+    });
 
-    // Insert standard demo user logins (admin, doctor, patient)
+    // Insert standard demo patient logins (kushwahamit7610@gmail.com, patient@clinic.com)
     for (const demoUser of standardDemoUsers) {
       const existingUser = await User.findOne({ email: demoUser.email });
       if (!existingUser) {
@@ -889,7 +831,7 @@ async function seedDatabase(options = {}) {
         await existingUser.save();
       }
     }
-    console.log('Ensured standard demo accounts (admin@clinic.com, dr.akash@clinic.com, dr.vipin@clinic.com, patient@clinic.com).');
+    console.log('Ensured standard demo patient accounts (kushwahamit7610@gmail.com, patient@clinic.com).');
 
     console.log('Gwalior real doctor database seeding completed successfully!');
     return true;

@@ -5,7 +5,6 @@ import io from 'socket.io-client';
 import AuditLogViewer from '../components/AuditLogViewer';
 import PasswordInput from '../components/PasswordInput';
 import { getSocketUrl } from '../config';
-
 const AdminDashboard = () => {
   const { user } = useAuth();
   const [doctors, setDoctors] = useState([]);
@@ -44,7 +43,6 @@ const AdminDashboard = () => {
   const [auditLogs, setAuditLogs] = useState([]);
   const [showAuditLogs, setShowAuditLogs] = useState(false);
   const socketUrl = getSocketUrl();
-
   const getStatusColor = (status) => {
     switch (status) {
       case 'pending': return 'dark:bg-slate-700 dark:text-slate-200 bg-slate-100 text-slate-800';
@@ -60,7 +58,6 @@ const AdminDashboard = () => {
       default: return 'dark:bg-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200';
     }
   };
-
   const fetchDoctors = async () => {
     try {
       const res = await axios.get('/api/doctors');
@@ -70,7 +67,6 @@ const AdminDashboard = () => {
       console.error('Error fetching doctors:', error);
     }
   };
-
   const fetchAppointments = async () => {
     try {
       const res = await axios.get('/api/appointments');
@@ -79,7 +75,6 @@ const AdminDashboard = () => {
       console.error('Error fetching appointments:', error);
     }
   };
-
   const fetchAuditLogs = async () => {
     try {
       const res = await axios.get('/api/records/audit-logs');
@@ -88,7 +83,6 @@ const AdminDashboard = () => {
       console.error('Error fetching audit logs:', error);
     }
   };
-
   const handleToggleDoctorStatus = async (id, currentStatus) => {
     try {
       await axios.patch(`/api/doctors/${id}/status`, { isActive: !currentStatus });
@@ -99,7 +93,6 @@ const AdminDashboard = () => {
       alert(error.response?.data?.message || 'Failed to update doctor status');
     }
   };
-
   const handleTogglePatientStatus = async (id, currentStatus) => {
     try {
       await axios.patch(`/api/users/${id}/status`, { isActive: !currentStatus });
@@ -110,7 +103,6 @@ const AdminDashboard = () => {
       alert(error.response?.data?.message || 'Failed to update patient status');
     }
   };
-
   const fetchPatients = async () => {
     try {
       const res = await axios.get('/api/users');
@@ -119,7 +111,6 @@ const AdminDashboard = () => {
       console.error('Error fetching patients:', error);
     }
   };
-
   const fetchQueue = useCallback(async () => {
     if (!selectedDoctor || !selectedDate) return;
     try {
@@ -129,14 +120,12 @@ const AdminDashboard = () => {
       console.error('Error fetching queue:', error);
     }
   }, [selectedDoctor, selectedDate]);
-
   useEffect(() => {
     fetchDoctors();
     fetchPatients();
     fetchAppointments();
     fetchAuditLogs();
   }, []);
-
   useEffect(() => {
     const socket = io(socketUrl);
     socket.on('appointmentUpdate', () => {
@@ -146,16 +135,13 @@ const AdminDashboard = () => {
         fetchQueue();
       }
     });
-
     return () => socket.close();
   }, [selectedDoctor, selectedDate, socketUrl, fetchQueue]);
-
   useEffect(() => {
     if (selectedDoctor && selectedDate) {
       fetchQueue();
     }
   }, [selectedDoctor, selectedDate, fetchQueue]);
-
   const handleDoctorSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -190,7 +176,6 @@ const AdminDashboard = () => {
       console.error('Error saving doctor:', error);
     }
   };
-
   const handlePatientSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -214,7 +199,6 @@ const AdminDashboard = () => {
       console.error('Error saving patient:', error);
     }
   };
-
   const handleDeleteDoctor = async (id) => {
     if (!window.confirm('Are you sure you want to delete this doctor?')) return;
     try {
@@ -224,7 +208,6 @@ const AdminDashboard = () => {
       console.error('Error deleting doctor:', error);
     }
   };
-
   const handleDeletePatient = async (id) => {
     if (!window.confirm('Are you sure you want to delete this patient?')) return;
     try {
@@ -234,7 +217,6 @@ const AdminDashboard = () => {
       console.error('Error deleting patient:', error);
     }
   };
-
   const updateAppointmentStatus = async (appointmentId, status) => {
     try {
       await axios.put(`/api/appointments/${appointmentId}/status`, { status });
@@ -245,7 +227,6 @@ const AdminDashboard = () => {
       console.error('Error updating status:', error);
     }
   };
-
   const handleRescheduleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -264,7 +245,6 @@ const AdminDashboard = () => {
       alert(error.response?.data?.message || 'Failed to reschedule appointment');
     }
   };
-
   const handleDayToggle = (day) => {
     setDoctorForm(prev => ({
       ...prev,
@@ -273,21 +253,17 @@ const AdminDashboard = () => {
         : [...prev.availableDays, day]
     }));
   };
-
   const totalPatients = patients.length;
   const completedAppointments = appointments.filter(apt => apt.status === 'completed').length;
   const totalEarnings = appointments
     .filter(apt => apt.payment?.status === 'paid')
     .reduce((sum, apt) => sum + (apt.payment?.amount || 0), 0);
-
   const averageWaitTime = Math.round(
     appointments.reduce((sum, apt) => sum + (apt.estimatedWaitTime || 0), 0) /
     (appointments.filter(apt => apt.estimatedWaitTime).length || 1)
   );
-
   const currentToken = queue.find(a => ['consulting', 'in_queue'].includes(a.status))?.tokenNumber || 'N/A';
   const nextToken = queue.find(a => ['confirmed', 'checked_in'].includes(a.status))?.tokenNumber || 'N/A';
-
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 py-8">
       <div className="max-w-7xl mx-auto px-4">
@@ -303,7 +279,6 @@ const AdminDashboard = () => {
             </div>
           </div>
         </div>
-
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
           <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-md border border-slate-200 dark:border-slate-800 p-6">
             <p className="text-sm text-gray-500">Total Patients</p>
@@ -322,7 +297,6 @@ const AdminDashboard = () => {
             <p className="text-3xl font-bold text-indigo-600">{averageWaitTime}m</p>
           </div>
         </div>
-
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
           <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-md border border-slate-200 dark:border-slate-800 p-6">
             <div className="flex justify-between items-center mb-4">
@@ -340,7 +314,6 @@ const AdminDashboard = () => {
                 {showAddDoctor ? 'Close' : 'Add Doctor'}
               </button>
             </div>
-
             {showAddDoctor && (
               <form onSubmit={handleDoctorSubmit} className="mb-6 p-4 bg-slate-50 dark:bg-slate-800/60 rounded">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -434,7 +407,6 @@ const AdminDashboard = () => {
                 </button>
               </form>
             )}
-
             <div className="space-y-3">
               {doctors.map(doctor => (
                 <div key={doctor._id} className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 bg-slate-50 dark:bg-slate-800/60 rounded-lg border">
@@ -489,7 +461,6 @@ const AdminDashboard = () => {
               )}
             </div>
           </div>
-
           <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-md border border-slate-200 dark:border-slate-800 p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold">Patient Management</h2>
@@ -506,7 +477,6 @@ const AdminDashboard = () => {
                 {showAddPatient ? 'Close' : 'Add Patient'}
               </button>
             </div>
-
             {showAddPatient && (
               <form onSubmit={handlePatientSubmit} className="mb-6 p-4 bg-slate-50 dark:bg-slate-800/60 rounded">
                 <div className="grid grid-cols-1 gap-4">
@@ -548,7 +518,6 @@ const AdminDashboard = () => {
                 </button>
               </form>
             )}
-
             <div className="overflow-x-auto">
               <table className="min-w-full bg-white rounded-lg shadow-sm">
                 <thead className="bg-slate-100 dark:bg-slate-800">
@@ -606,7 +575,6 @@ const AdminDashboard = () => {
             </div>
           </div>
         </div>
-
         <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-md border border-slate-200 dark:border-slate-800 p-6 mb-8">
           <h2 className="text-xl font-semibold mb-4">Queue Monitoring</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -623,7 +591,6 @@ const AdminDashboard = () => {
               <p className="text-3xl font-bold text-green-700">{averageWaitTime}m</p>
             </div>
           </div>
-
           <div className="flex flex-col md:flex-row gap-4 mb-4">
             <select
               value={selectedDoctor}
@@ -642,7 +609,6 @@ const AdminDashboard = () => {
               className="px-3 py-2 border rounded w-full md:w-1/2"
             />
           </div>
-
           {selectedDoctor ? (
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -655,7 +621,6 @@ const AdminDashboard = () => {
                   <p className="text-4xl font-bold text-indigo-700">{nextToken}</p>
                 </div>
               </div>
-
               {queue.length === 0 ? (
                 <p className="text-center text-gray-500 py-4">No appointments in queue.</p>
               ) : (
@@ -668,12 +633,6 @@ const AdminDashboard = () => {
                         <p className="text-sm text-gray-500">{appointment.time}</p>
                       </div>
                       <div className="flex flex-wrap gap-2 mt-3 md:mt-0">
-                    <button
-                      onClick={() => handleToggleDoctorStatus(doctor._id, doctor.isActive !== false)}
-                      className={`px-3 py-1 rounded text-sm font-bold text-white transition ${doctor.isActive !== false ? 'bg-amber-500 hover:bg-amber-600' : 'bg-emerald-600 hover:bg-emerald-700'}`}
-                    >
-                      {doctor.isActive !== false ? 'Deactivate' : 'Activate'}
-                    </button>
                         {appointment.status === 'pending' && (
                           <button
                             onClick={() => updateAppointmentStatus(appointment._id, 'confirmed')}
@@ -733,7 +692,6 @@ const AdminDashboard = () => {
             <p className="text-gray-500">Choose a doctor and date to view queue details.</p>
           )}
         </div>
-
         <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-md border border-slate-200 dark:border-slate-800 p-6 mb-8">
           <h2 className="text-xl font-semibold mb-4">Appointment Management</h2>
           <div className="overflow-x-auto">
@@ -787,7 +745,6 @@ const AdminDashboard = () => {
             </table>
           </div>
         </div>
-
         {rescheduleData.appointmentId && (
           <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-md border border-slate-200 dark:border-slate-800 p-6 mb-8">
             <h2 className="text-xl font-semibold mb-4">Reschedule Appointment</h2>
@@ -834,8 +791,6 @@ const AdminDashboard = () => {
         <AuditLogViewer />
       </div>
     </div>
-
   );
 };
-
 export default AdminDashboard;

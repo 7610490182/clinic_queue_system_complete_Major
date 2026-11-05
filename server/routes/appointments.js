@@ -422,15 +422,15 @@ router.get('/queue/:doctorId/:date', auth, async (req, res) => {
       }
     }
 
-    const startOfDay = new Date(date);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(date);
-    endOfDay.setHours(23, 59, 59, 999);
+    const dateStr = String(date).split('T')[0];
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const startOfDay = new Date(year, month - 1, day, 0, 0, 0, 0);
+    const endOfDay = new Date(year, month - 1, day, 23, 59, 59, 999);
 
     const appointments = await Appointment.find({
       doctor: doctorId,
       date: { $gte: startOfDay, $lte: endOfDay },
-      status: { $in: ['confirmed', 'checked_in', 'in_queue', 'booked', 'waiting', 'ongoing'] }
+      status: { $in: ['pending', 'confirmed', 'checked_in', 'in_queue', 'booked', 'waiting', 'ongoing', 'consulting'] }
     })
       .populate('patient', 'name phone bloodGroup')
       .populate('doctor', 'name specialization')
@@ -565,18 +565,31 @@ router.get('/track-token', async (req, res) => {
       query = {
         tokenNumber: parseInt(tokenNumber, 10),
         doctor: doctorId,
-        date: { $gte: todayStart, $lte: todayEnd }
+        date: { $gte: todayStart, $lte: todayEnd },
+        status: { $ne: 'cancelled' }
       };
     } else {
       return res.status(400).json({ message: 'Provide either appointmentId or tokenNumber & doctorId' });
     }
 
-    const appointment = await Appointment.findOne(query)
+    let appointment = await Appointment.findOne(query)
       .populate('doctor', 'name specialization clinic timings address rating phone profileImage')
       .populate('patient', 'name phone');
 
+    // Fallback: If not found strictly within today's range, check any recent or active appointment for this doctor & token
+    if (!appointment && tokenNumber && doctorId) {
+      appointment = await Appointment.findOne({
+        tokenNumber: parseInt(tokenNumber, 10),
+        doctor: doctorId,
+        status: { $ne: 'cancelled' }
+      })
+      .sort({ createdAt: -1 })
+      .populate('doctor', 'name specialization clinic timings address rating phone profileImage')
+      .populate('patient', 'name phone');
+    }
+
     if (!appointment) {
-      return res.status(404).json({ message: 'Appointment / token not found for today' });
+      return res.status(404).json({ message: 'Appointment or token not found. Please verify your token number and selected doctor.' });
     }
 
     const apptDate = new Date(appointment.date);
@@ -585,11 +598,12 @@ router.get('/track-token', async (req, res) => {
     const endOfDay = new Date(apptDate);
     endOfDay.setHours(23, 59, 59, 999);
 
-    const allDayApts = await Appointment.find({
-      doctor: appointment.doctor._id,
+    const docIdVal = appointment.doctor?._id || appointment.doctor;
+    const allDayApts = docIdVal ? await Appointment.find({
+      doctor: docIdVal,
       date: { $gte: startOfDay, $lte: endOfDay },
       status: { $ne: 'cancelled' }
-    }).sort({ priority: -1, tokenNumber: 1 });
+    }).sort({ priority: -1, tokenNumber: 1 }) : [];
 
     const consultingApt = allDayApts.find((a) => a.status === 'consulting');
     const currentServingToken = consultingApt

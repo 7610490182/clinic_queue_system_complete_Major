@@ -51,12 +51,8 @@ const DoctorDashboard = () => {
 
   const fetchDoctorData = useCallback(async () => {
     try {
-      const response = await fetch('/api/appointments/doctor', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      const data = await response.json();
+      const response = await axios.get('/api/appointments/doctor');
+      const data = response.data;
       setAppointments(data.appointments || []);
       setQueue(data.queue || []);
       if (data.stats) {
@@ -88,14 +84,8 @@ const DoctorDashboard = () => {
   const callNextPatient = async () => {
     setCalling(true);
     try {
-      const response = await fetch('/api/appointments/call-next', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      const data = await response.json();
+      const response = await axios.post('/api/appointments/call-next');
+      const data = response.data;
       if (data.success) {
         setCurrentPatient(data.patient);
         fetchDoctorData();
@@ -111,13 +101,8 @@ const DoctorDashboard = () => {
     if (!currentPatient) return;
 
     try {
-      const response = await fetch(`/api/appointments/complete/${currentPatient._id}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      const data = await response.json();
+      const response = await axios.post(`/api/appointments/complete/${currentPatient._id}`);
+      const data = response.data;
       if (data.success) {
         setCurrentPatient(null);
         fetchDoctorData();

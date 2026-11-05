@@ -35,3 +35,4 @@ export const getSocketUrl = () => {
   }
   return 'https://clinic-queue-system-complete-major.onrender.com';
 };
+

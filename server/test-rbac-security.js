@@ -46,12 +46,12 @@ async function runRBACTests() {
 
     // Doctor login (with 2FA support if enabled)
     const docRes = await axios.post(`${BASE_URL}/api/auth/login`, {
-      email: 'dr.akashmodi@gwaliorheart.in',
+      email: 'dr.akash@clinic.com',
       password: 'doctor123'
     });
     if (docRes.data.requires2FA) {
       const verifyRes = await axios.post(`${BASE_URL}/api/auth/2fa/verify`, {
-        email: 'dr.akashmodi@gwaliorheart.in',
+        email: 'dr.akash@clinic.com',
         code: docRes.data.mockOTP
       });
       doctorToken = verifyRes.data.token;
@@ -61,7 +61,7 @@ async function runRBACTests() {
 
     // Get doctor record ID
     const docListRes = await axios.get(`${BASE_URL}/api/doctors`);
-    const docRecord = docListRes.data.find(d => d.email === 'dr.akashmodi@gwaliorheart.in') || docListRes.data[0];
+    const docRecord = docListRes.data.find(d => d.email === 'dr.akash@clinic.com') || docListRes.data[0];
     doctorRecordId = docRecord._id;
 
     // Register Patient A
@@ -292,6 +292,22 @@ async function runRBACTests() {
 
   } catch (unexpectedErr) {
     console.error('Unexpected test harness error:', unexpectedErr);
+  } finally {
+    if (adminToken) {
+      try {
+        const usersRes = await axios.get(`${BASE_URL}/api/users`, {
+          headers: { Authorization: `Bearer ${adminToken}` }
+        });
+        const testUsers = (usersRes.data || []).filter(u => 
+          u.email && (u.email.startsWith('test_patient_') || u.email.startsWith('race_patient_'))
+        );
+        for (const u of testUsers) {
+          await axios.delete(`${BASE_URL}/api/users/${u._id}`, {
+            headers: { Authorization: `Bearer ${adminToken}` }
+          }).catch(() => {});
+        }
+      } catch (e) {}
+    }
   }
 
   // Summary
