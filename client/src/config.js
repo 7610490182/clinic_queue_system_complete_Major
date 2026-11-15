@@ -10,12 +10,13 @@ export const getApiUrl = () => {
         const envUrl = import.meta.env.VITE_API_URL;
         return (envUrl && !envUrl.includes('render.com')) ? envUrl : 'http://localhost:5000';
       }
-      return window.location.origin;
+      return '';
     }
-    // In production on Render or live domain, use the current origin
-    return window.location.origin;
+    // In production on Render or live deployed domain, use relative path ''
+    // This guarantees same-origin API routing without CORS or protocol mismatches
+    return '';
   }
-  return 'https://clinic-queue-system-complete-major.onrender.com';
+  return '';
 };
 
 export const getSocketUrl = () => {

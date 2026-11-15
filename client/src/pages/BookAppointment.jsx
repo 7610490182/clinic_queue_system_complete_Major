@@ -268,10 +268,10 @@ const BookAppointment = () => {
                   <FiMapPin className="text-slate-400" /> {doctor.clinic || 'Main Clinic Facility'}
                 </span>
                 <span className="flex items-center gap-1">
-                  <FiClock className="text-slate-400" /> {doctor.timings?.start} - {doctor.timings?.end}
+                  <FiClock className="text-slate-400" /> {doctor.timings?.start || '10:00 AM'} - {doctor.timings?.end || '07:00 PM'}
                 </span>
                 <span className="flex items-center gap-1 text-amber-500 font-semibold">
-                  <FiStar className="fill-amber-400 text-amber-400" /> {doctor.rating?.toFixed(1) || '4.8'} ({doctor.reviewCount || 120}+ reviews)
+                  <FiStar className="fill-amber-400 text-amber-400" /> {(Number(doctor.rating) || 4.8).toFixed(1)} ({doctor.reviewCount || 120}+ reviews)
                 </span>
               </div>
             </div>

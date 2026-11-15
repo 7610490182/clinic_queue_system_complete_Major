@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import { DoctorCard } from './DoctorList';
 import {
   FiSearch,
   FiCompass,
@@ -48,6 +49,7 @@ const Home = () => {
   const [symptomSearch, setSymptomSearch] = useState('');
   const [doctors, setDoctors] = useState([]);
   const [loadingDoctors, setLoadingDoctors] = useState(true);
+  const [selectedSpecialtyTab, setSelectedSpecialtyTab] = useState('All');
 
   // Interactive Live Chamber Radar
   const [selectedRadarDocIndex, setSelectedRadarDocIndex] = useState(0);
@@ -211,6 +213,11 @@ const Home = () => {
       ];
 
   const currentRadarDoc = featuredDoctors[selectedRadarDocIndex] || featuredDoctors[0];
+
+  // Doctors showcased on homepage directory
+  const displayedHomeDoctors = (doctors.length > 0 ? doctors : featuredDoctors)
+    .filter((doc) => selectedSpecialtyTab === 'All' || doc.specialization === selectedSpecialtyTab)
+    .slice(0, 6);
 
   // Real-time calculation for simulator
   const activeSimDoc = featuredDoctors[simDoctorIndex] || featuredDoctors[0];
@@ -799,6 +806,73 @@ const Home = () => {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* VERIFIED SPECIALISTS DIRECTORY SHOWCASE */}
+      <section className="py-16 px-4 max-w-7xl mx-auto">
+        <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
+          <div>
+            <span className="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 block mb-2">
+              {isHindi ? 'ग्वालियर के सत्यापित विशेषज्ञ' : 'Verified Clinical Practitioners'}
+            </span>
+            <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+              {isHindi ? 'हमारे विशेषज्ञ डॉक्टरों से परामर्श लें' : 'Meet Our Verified Specialists'}
+            </h2>
+            <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
+              {isHindi
+                ? 'लाइव कतार ट्रैकिंग, गूगल मैप्स दिशा-निर्देश एवं तत्काल डिजिटल टोकन बुकिंग'
+                : 'Real-time queue tracking, clinic directions & verified doctor chambers in Gwalior'}
+            </p>
+          </div>
+
+          <Link
+            to="/doctors"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-500/20 transition self-start md:self-auto"
+          >
+            <span>{isHindi ? `सभी ${doctors.length || 26} डॉक्टर देखें` : `Browse All ${doctors.length || 26} Doctors`}</span>
+            <FiArrowRight />
+          </Link>
+        </div>
+
+        {/* Quick Filter Tabs */}
+        <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-none mb-6">
+          {['All', 'Cardiologist', 'Orthopedic Surgeon', 'Pediatrician', 'Dermatologist', 'General Physician', 'Obstetrician & Gynecologist'].map((spec) => (
+            <button
+              key={spec}
+              onClick={() => setSelectedSpecialtyTab(spec)}
+              className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition border ${
+                selectedSpecialtyTab === spec
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-500/20'
+                  : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-blue-400'
+              }`}
+            >
+              {spec === 'All' ? (isHindi ? 'सभी विशेषज्ञ' : 'All Specialists') : spec}
+            </button>
+          ))}
+        </div>
+
+        {/* Doctor Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {displayedHomeDoctors.map((doc) => (
+            <DoctorCard key={doc._id} doctor={doc} />
+          ))}
+        </div>
+
+        {displayedHomeDoctors.length === 0 && !loadingDoctors && (
+          <div className="text-center py-10 bg-slate-50 dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800">
+            <p className="text-sm text-slate-500">No doctors available in this category.</p>
+          </div>
+        )}
+
+        <div className="mt-8 text-center">
+          <Link
+            to="/doctors"
+            className="inline-flex items-center gap-2 px-8 py-3.5 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 hover:text-blue-600 font-black text-xs border border-slate-200 dark:border-slate-700 transition"
+          >
+            <span>{isHindi ? 'सभी 26 ग्वालियर डॉक्टरों की संपूर्ण सूची एवं फिल्टर' : 'Explore All 26 Gwalior Doctors with Filters & Maps'}</span>
+            <FiArrowRight />
+          </Link>
         </div>
       </section>
 

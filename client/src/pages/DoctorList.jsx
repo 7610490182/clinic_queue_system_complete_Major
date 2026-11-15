@@ -141,7 +141,8 @@ const specialtyMetadata = {
   }
 };
 
-const DoctorCard = ({ doctor }) => {
+export const DoctorCard = ({ doctor }) => {
+  if (!doctor) return null;
   const { language, t } = useLanguage();
   const isHindi = language === 'hi';
   const [imageError, setImageError] = useState(false);
@@ -155,6 +156,8 @@ const DoctorCard = ({ doctor }) => {
       .slice(0, 2)
       .join('')
     : 'DR';
+  const ratingVal = (Number(doctor.rating) || 4.8).toFixed(1);
+  const reviewCount = Number(doctor.reviewCount) || 120;
 
   return (
     <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-lg hover:shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col justify-between transition-all duration-300 transform hover:-translate-y-1 group">
@@ -190,8 +193,8 @@ const DoctorCard = ({ doctor }) => {
           {/* Rating Badge */}
           <div className="absolute top-4 left-4 bg-white/95 dark:bg-slate-900/90 backdrop-blur-md px-3 py-1 rounded-full text-xs font-black text-slate-900 dark:text-white shadow-md flex items-center gap-1.5">
             <FiStar className="text-amber-500 fill-amber-500" />
-            <span>{doctor.rating?.toFixed(1) || '4.8'}</span>
-            <span className="text-slate-400 font-normal">({doctor.reviewCount || 120})</span>
+            <span>{ratingVal}</span>
+            <span className="text-slate-400 font-normal">({reviewCount})</span>
           </div>
 
           {/* Available Status */}
@@ -225,12 +228,12 @@ const DoctorCard = ({ doctor }) => {
             <span>
               {isHindi ? 'चिकित्सीय अनुभव:' : 'Clinical Experience:'}{' '}
               <strong className="text-slate-900 dark:text-white">
-                {doctor.experience} {isHindi ? 'वर्ष' : 'years'}
+                {doctor.experience ?? 5} {isHindi ? 'वर्ष' : 'years'}
               </strong>
             </span>
           </p>
 
-          {doctor.timings && (
+          {doctor.timings && doctor.timings.start && doctor.timings.end && (
             <p className="text-xs text-slate-600 dark:text-slate-300 flex items-center gap-2">
               <FiClock className="text-amber-500 flex-shrink-0" />
               <span>

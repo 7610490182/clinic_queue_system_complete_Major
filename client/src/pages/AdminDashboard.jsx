@@ -70,7 +70,7 @@ const AdminDashboard = () => {
   const fetchAppointments = async () => {
     try {
       const res = await axios.get('/api/appointments');
-      setAppointments(res.data);
+      setAppointments(Array.isArray(res.data) ? res.data : []);
     } catch (error) {
       console.error('Error fetching appointments:', error);
     }
@@ -78,7 +78,7 @@ const AdminDashboard = () => {
   const fetchAuditLogs = async () => {
     try {
       const res = await axios.get('/api/records/audit-logs');
-      setAuditLogs(res.data);
+      setAuditLogs(Array.isArray(res.data) ? res.data : []);
     } catch (error) {
       console.error('Error fetching audit logs:', error);
     }
@@ -106,7 +106,7 @@ const AdminDashboard = () => {
   const fetchPatients = async () => {
     try {
       const res = await axios.get('/api/users');
-      setPatients(res.data);
+      setPatients(Array.isArray(res.data) ? res.data : []);
     } catch (error) {
       console.error('Error fetching patients:', error);
     }
@@ -115,7 +115,7 @@ const AdminDashboard = () => {
     if (!selectedDoctor || !selectedDate) return;
     try {
       const res = await axios.get(`/api/appointments/queue/${selectedDoctor}/${selectedDate}`);
-      setQueue(res.data);
+      setQueue(Array.isArray(res.data) ? res.data : []);
     } catch (error) {
       console.error('Error fetching queue:', error);
     }
@@ -253,17 +253,22 @@ const AdminDashboard = () => {
         : [...prev.availableDays, day]
     }));
   };
-  const totalPatients = patients.length;
-  const completedAppointments = appointments.filter(apt => apt.status === 'completed').length;
-  const totalEarnings = appointments
+  const appointmentsList = Array.isArray(appointments) ? appointments : [];
+  const patientsList = Array.isArray(patients) ? patients : [];
+  const queueList = Array.isArray(queue) ? queue : [];
+  const doctorsList = Array.isArray(doctors) ? doctors : [];
+
+  const totalPatients = patientsList.length;
+  const completedAppointments = appointmentsList.filter(apt => apt.status === 'completed').length;
+  const totalEarnings = appointmentsList
     .filter(apt => apt.payment?.status === 'paid')
     .reduce((sum, apt) => sum + (apt.payment?.amount || 0), 0);
   const averageWaitTime = Math.round(
-    appointments.reduce((sum, apt) => sum + (apt.estimatedWaitTime || 0), 0) /
-    (appointments.filter(apt => apt.estimatedWaitTime).length || 1)
+    appointmentsList.reduce((sum, apt) => sum + (apt.estimatedWaitTime || 0), 0) /
+    (appointmentsList.filter(apt => apt.estimatedWaitTime).length || 1)
   );
-  const currentToken = queue.find(a => ['consulting', 'in_queue'].includes(a.status))?.tokenNumber || 'N/A';
-  const nextToken = queue.find(a => ['confirmed', 'checked_in'].includes(a.status))?.tokenNumber || 'N/A';
+  const currentToken = queueList.find(a => ['consulting', 'in_queue'].includes(a.status))?.tokenNumber || 'N/A';
+  const nextToken = queueList.find(a => ['confirmed', 'checked_in'].includes(a.status))?.tokenNumber || 'N/A';
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 py-8">
       <div className="max-w-7xl mx-auto px-4">

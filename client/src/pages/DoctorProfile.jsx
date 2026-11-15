@@ -434,8 +434,8 @@ const DoctorProfile = () => {
           <div className="p-2">
             <span className="text-[11px] uppercase font-bold text-slate-400 block">{t('rating')}</span>
             <span className="text-lg font-black text-amber-500 flex items-center justify-center gap-1 mt-0.5">
-              <FiStar className="fill-amber-500" /> {doctor.rating?.toFixed(1) || '4.8'}
-              <span className="text-xs text-slate-400 font-normal">({doctor.reviewCount || 120})</span>
+              <FiStar className="fill-amber-500" /> {(Number(doctor?.rating) || 4.8).toFixed(1)}
+              <span className="text-xs text-slate-400 font-normal">({doctor?.reviewCount || 120})</span>
             </span>
           </div>
           <div className="p-2">
@@ -555,10 +555,10 @@ const DoctorProfile = () => {
               </div>
               <div className="text-right">
                 <span className="text-lg font-black text-amber-500">
-                  {doctor.rating?.toFixed(1) || '4.8'} / 5.0
+                  {(Number(doctor?.rating) || 4.8).toFixed(1)} / 5.0
                 </span>
                 <span className="text-[11px] text-slate-400 block">
-                  {doctor.reviewCount || 120} {isHindi ? 'समीक्षाएं' : 'ratings'}
+                  {doctor?.reviewCount || 120} {isHindi ? 'समीक्षाएं' : 'ratings'}
                 </span>
               </div>
             </div>
