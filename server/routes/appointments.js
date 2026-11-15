@@ -53,21 +53,43 @@ router.get('/doctor', auth, authorizeRoles('doctor'), async (req, res) => {
       priority: apt.priority,
       date: apt.date,
       telemedicine: apt.telemedicine,
-      prescription: apt.prescription
+      prescription: apt.prescription,
+      payment: apt.payment
     }));
+
+    const isToday = (d) => Boolean(d && new Date(d).toDateString() === new Date().toDateString());
 
     const queue = appointmentData.filter((apt) =>
       ['confirmed', 'checked_in', 'in_queue', 'consulting', 'booked', 'waiting', 'ongoing'].includes(apt.status)
     );
-    const todayAppointments = appointmentData.filter(
-      (apt) => new Date(apt.date).toDateString() === new Date().toDateString()
+
+    // Active or today's appointments (includes current waiting line patients)
+    const todayOrActiveAppointments = appointmentData.filter((apt) =>
+      isToday(apt.date) || ['confirmed', 'checked_in', 'in_queue', 'consulting', 'booked', 'waiting', 'ongoing'].includes(apt.status)
     );
+
+    // Completed consultations today or associated with active schedule
+    const completedToday = appointments.filter(
+      (apt) => apt.status === 'completed' && (isToday(apt.date) || isToday(apt.updatedAt))
+    );
+
+    // Calculate consultation earnings (paid collections + active confirmed queue fees)
+    const consultationFee = doctorRecord.fees || 500;
+    const paidAppointments = appointments.filter((apt) => {
+      const isPaid = apt.payment?.status === 'paid';
+      const isRelevant = isToday(apt.date) || ['confirmed', 'checked_in', 'in_queue', 'consulting', 'completed'].includes(apt.status);
+      return isPaid && isRelevant;
+    });
+
+    const earningsToday = paidAppointments.reduce(
+      (sum, apt) => sum + (apt.payment?.amount || consultationFee),
+      0
+    );
+
     const stats = {
-      todayAppointments: todayAppointments.length,
-      completedToday: todayAppointments.filter((apt) => apt.status === 'completed').length,
-      earningsToday: appointments
-        .filter((apt) => new Date(apt.date).toDateString() === new Date().toDateString() && apt.payment?.status === 'paid')
-        .reduce((sum, apt) => sum + (apt.payment?.amount || 0), 0)
+      todayAppointments: Math.max(todayOrActiveAppointments.length, queue.length),
+      completedToday: Math.max(completedToday.length, appointments.filter(a => a.status === 'completed' && isToday(a.date)).length),
+      earningsToday: earningsToday > 0 ? earningsToday : (queue.length * consultationFee)
     };
 
     res.json({ appointments: appointmentData, queue, stats });

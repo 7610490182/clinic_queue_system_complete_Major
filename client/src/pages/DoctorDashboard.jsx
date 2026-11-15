@@ -181,7 +181,7 @@ const DoctorDashboard = () => {
             <span>Doctor Consultation Console 2027</span>
           </div>
           <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-            Dr. {user?.name || 'Practitioner'}
+            {user?.name?.startsWith('Dr.') ? user.name : `Dr. ${user?.name || 'Practitioner'}`}
           </h1>
           <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm">
             AI dynamic waiting room queue, WebRTC telemedicine room, and EMR timeline access.
@@ -428,9 +428,15 @@ const DoctorDashboard = () => {
                     >
                       Urgent
                     </button>
-                    <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2.5 py-1 rounded-full border border-amber-200/60 dark:border-amber-900/50">
-                      Waiting
-                    </span>
+                    {patient.payment?.status === 'paid' ? (
+                      <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-full border border-emerald-200/60 dark:border-emerald-900/50">
+                        Paid ₹{patient.payment.amount || 500}
+                      </span>
+                    ) : (
+                      <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2.5 py-1 rounded-full border border-amber-200/60 dark:border-amber-900/50">
+                        Waiting
+                      </span>
+                    )}
                   </div>
                 </div>
               ))}
