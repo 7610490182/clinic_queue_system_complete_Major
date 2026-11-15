@@ -833,6 +833,21 @@ async function seedDatabase(options = {}) {
     }
     console.log('Ensured standard demo patient accounts (kushwahamit7610@gmail.com, patient@clinic.com).');
 
+    // Repair orphan appointments: Link any appointment whose doctor no longer exists to an active verified doctor
+    const defaultDoctor = await Doctor.findOne({ email: 'dr.akash@clinic.com' }) || await Doctor.findOne({ isActive: true });
+    if (defaultDoctor) {
+      const allDoctors = await Doctor.find({}, '_id');
+      const validDocIds = allDoctors.map(d => d._id);
+      const orphanApts = await Appointment.find({ doctor: { $nin: validDocIds } });
+      if (orphanApts.length > 0) {
+        await Appointment.updateMany(
+          { doctor: { $nin: validDocIds } },
+          { $set: { doctor: defaultDoctor._id } }
+        );
+        console.log(`Repaired ${orphanApts.length} orphan appointments by linking them to ${defaultDoctor.name}`);
+      }
+    }
+
     console.log('Gwalior real doctor database seeding completed successfully!');
     return true;
   } catch (error) {

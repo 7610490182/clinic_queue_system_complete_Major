@@ -627,65 +627,72 @@ const AdminDashboard = () => {
                 </div>
               </div>
               {queue.length === 0 ? (
-                <p className="text-center text-gray-500 py-4">No appointments in queue.</p>
+                <p className="text-center text-gray-500 py-6 text-sm">No active appointments in queue for this date.</p>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-3.5">
                   {queue.map(appointment => (
-                    <div key={appointment._id} className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 bg-slate-50 dark:bg-slate-800/60 rounded-lg border">
-                      <div>
-                        <p className="font-semibold">Token #{appointment.tokenNumber}</p>
-                        <p className="text-sm text-gray-600">{appointment.patient?.name || 'Unknown patient'}</p>
-                        <p className="text-sm text-gray-500">{appointment.time}</p>
+                    <div key={appointment._id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700/80 shadow-sm gap-3">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-base font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2.5 py-0.5 rounded-lg border border-blue-200 dark:border-blue-900">
+                            Token #{appointment.tokenNumber}
+                          </span>
+                          <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full capitalize ${getStatusColor(appointment.status)}`}>
+                            {appointment.status?.replace('_', ' ')}
+                          </span>
+                        </div>
+                        <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{appointment.patient?.name || 'Walk-in / Guest Patient'}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">🕒 {appointment.time} • 📱 {appointment.patient?.phone || 'No phone recorded'}</p>
                       </div>
-                      <div className="flex flex-wrap gap-2 mt-3 md:mt-0">
+                      <div className="flex flex-wrap gap-2 w-full sm:w-auto mt-2 sm:mt-0">
                         {appointment.status === 'pending' && (
                           <button
                             onClick={() => updateAppointmentStatus(appointment._id, 'confirmed')}
-                            className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm"
+                            className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white font-bold px-3.5 py-2 rounded-xl text-xs shadow-sm transition active:scale-95 touch-manipulation min-h-[36px]"
                           >
-                            Confirm
+                            ✓ Confirm
                           </button>
                         )}
                         {appointment.status === 'confirmed' && (
                           <button
                             onClick={() => updateAppointmentStatus(appointment._id, 'in_queue')}
-                            className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm"
+                            className="flex-1 sm:flex-none bg-amber-500 hover:bg-amber-600 text-white font-bold px-3.5 py-2 rounded-xl text-xs shadow-sm transition active:scale-95 touch-manipulation min-h-[36px]"
                           >
-                            Add to Queue
+                            ⏳ Add to Queue
                           </button>
                         )}
                         {appointment.status === 'in_queue' && (
                           <button
                             onClick={() => updateAppointmentStatus(appointment._id, 'consulting')}
-                            className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded text-sm"
+                            className="flex-1 sm:flex-none bg-orange-500 hover:bg-orange-600 text-white font-bold px-3.5 py-2 rounded-xl text-xs shadow-sm transition active:scale-95 touch-manipulation min-h-[36px]"
                           >
-                            Start Consulting
+                            👨‍⚕️ Start Consulting
                           </button>
                         )}
                         {appointment.status === 'consulting' && (
                           <button
                             onClick={() => updateAppointmentStatus(appointment._id, 'completed')}
-                            className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm"
+                            className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3.5 py-2 rounded-xl text-xs shadow-sm transition active:scale-95 touch-manipulation min-h-[36px]"
                           >
-                            Complete
+                            ✓ Complete
                           </button>
                         )}
                         <button
                           onClick={() => updateAppointmentStatus(appointment._id, 'cancelled')}
-                          className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm"
+                          className="flex-1 sm:flex-none bg-rose-500 hover:bg-rose-600 text-white font-bold px-3.5 py-2 rounded-xl text-xs shadow-sm transition active:scale-95 touch-manipulation min-h-[36px]"
                         >
-                          Cancel
+                          ✕ Cancel
                         </button>
                         <button
                           onClick={() => setRescheduleData({
                             appointmentId: appointment._id,
                             doctorId: appointment.doctor?._id || appointment.doctor || selectedDoctor,
-                            date: new Date(appointment.date).toISOString().split('T')[0],
+                            date: appointment.date ? new Date(appointment.date).toISOString().split('T')[0] : selectedDate,
                             time: appointment.time
                           })}
-                          className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm"
+                          className="flex-1 sm:flex-none bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3.5 py-2 rounded-xl text-xs shadow-sm transition active:scale-95 touch-manipulation min-h-[36px]"
                         >
-                          Reschedule
+                          📅 Reschedule
                         </button>
                       </div>
                     </div>

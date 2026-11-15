@@ -76,10 +76,10 @@ const TrackToken = () => {
       if (active.length > 0 && !selectedDoctorId && !tokenInput && !appointmentIdInput) {
         const first = active[0];
         const docId = first.doctor?._id || first.doctor;
-        setSelectedDoctorId(docId);
-        setTokenInput(first.tokenNumber);
+        if (docId) setSelectedDoctorId(String(docId));
+        if (first.tokenNumber) setTokenInput(String(first.tokenNumber));
         setAppointmentIdInput(first._id);
-        trackTokenData({ appointmentId: first._id });
+        trackTokenData({ appointmentId: first._id, doctorId: docId ? String(docId) : undefined, tokenNumber: first.tokenNumber });
       }
     } catch (err) {
       console.error('Error fetching patient appointments:', err);
@@ -87,12 +87,12 @@ const TrackToken = () => {
   };
 
   const trackTokenData = useCallback(async (overrideParams) => {
-    const docId = overrideParams?.doctorId || selectedDoctorId;
-    const token = overrideParams?.tokenNumber || tokenInput;
-    const apptId = overrideParams?.appointmentId || appointmentIdInput;
+    const docId = overrideParams?.doctorId !== undefined ? overrideParams.doctorId : selectedDoctorId;
+    const token = overrideParams?.tokenNumber !== undefined ? overrideParams.tokenNumber : tokenInput;
+    const apptId = overrideParams?.appointmentId !== undefined ? overrideParams.appointmentId : appointmentIdInput;
 
     if (!apptId && (!token || !docId)) {
-      setError('Please provide your Token Number and select the Doctor, or choose an active appointment.');
+      setError(isHindi ? 'कृपया टोकन नंबर और डॉक्टर का चयन करें, या अपनी सक्रिय बुकिंग पर क्लिक करें।' : 'Please provide your Token Number and select the Doctor, or choose an active appointment.');
       return;
     }
 
@@ -109,6 +109,18 @@ const TrackToken = () => {
       setTrackingData(res.data);
       setLastRefreshed(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
 
+      // Automatically sync doctor selection dropdown & token input with the retrieved appointment
+      if (res.data?.appointment) {
+        const aptDoc = res.data.appointment.doctor;
+        const resolvedDocId = aptDoc?._id || aptDoc;
+        if (resolvedDocId) {
+          setSelectedDoctorId(String(resolvedDocId));
+        }
+        if (res.data.appointment.tokenNumber) {
+          setTokenInput(String(res.data.appointment.tokenNumber));
+        }
+      }
+
       // Fetch 2027 AI Queue Prediction Telemetry
       const doctorIdVal = res.data.appointment?.doctor?._id || docId;
       const tokenNumVal = res.data.appointment?.tokenNumber || token;
@@ -122,12 +134,12 @@ const TrackToken = () => {
       }
     } catch (err) {
       console.error('Tracking error:', err);
-      setError(err.response?.data?.message || 'Token not found for today. Verify your token number and selected doctor.');
+      setError(err.response?.data?.message || (isHindi ? 'टोकन नहीं मिला। कृपया टोकन नंबर और डॉक्टर की जांच करें।' : 'Token not found for today. Verify your token number and selected doctor.'));
       setTrackingData(null);
     } finally {
       setLoading(false);
     }
-  }, [selectedDoctorId, tokenInput, appointmentIdInput]);
+  }, [selectedDoctorId, tokenInput, appointmentIdInput, isHindi]);
 
   useEffect(() => {
     if (appointmentIdInput || (tokenInput && selectedDoctorId)) {
@@ -149,8 +161,12 @@ const TrackToken = () => {
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
+    if (!selectedDoctorId || !tokenInput) {
+      setError(isHindi ? 'कृपया डॉक्टर चुनें और टोकन नंबर दर्ज करें।' : 'Please select a specialist and enter your token number.');
+      return;
+    }
     setAppointmentIdInput('');
-    trackTokenData();
+    trackTokenData({ doctorId: selectedDoctorId, tokenNumber: tokenInput, appointmentId: null });
   };
 
   const handleVoiceAnnouncement = () => {
@@ -206,35 +222,36 @@ const TrackToken = () => {
 
       {/* User Active Appointments Quick Select Pills */}
       {userAppointments.length > 0 && (
-        <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 shadow-md border border-slate-200 dark:border-slate-800 space-y-2">
-          <span className="text-[10px] uppercase font-bold text-slate-400 block px-2">
-            Your Active Bookings Today (Click to Track):
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-5 shadow-md border border-slate-200 dark:border-slate-800 space-y-2.5">
+          <span className="text-[10px] uppercase font-bold text-slate-400 block px-1 tracking-wider">
+            {isHindi ? 'आपकी आज की सक्रिय बुकिंग (ट्रैक करने हेतु क्लिक करें):' : 'Your Active Bookings Today (Click to Track):'}
           </span>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2.5">
             {userAppointments.map((apt) => {
               const docId = apt.doctor?._id || apt.doctor;
-              const isSelected = appointmentIdInput === apt._id || (tokenInput == apt.tokenNumber && selectedDoctorId === docId);
+              const doctorName = apt.doctor?.name || 'Specialist';
+              const isSelected = appointmentIdInput === apt._id || (String(tokenInput) === String(apt.tokenNumber) && String(selectedDoctorId) === String(docId));
 
               return (
                 <button
                   key={apt._id}
                   onClick={() => {
-                    setSelectedDoctorId(docId);
-                    setTokenInput(apt.tokenNumber);
+                    if (docId) setSelectedDoctorId(String(docId));
+                    setTokenInput(String(apt.tokenNumber));
                     setAppointmentIdInput(apt._id);
-                    trackTokenData({ appointmentId: apt._id });
+                    trackTokenData({ appointmentId: apt._id, doctorId: docId ? String(docId) : undefined, tokenNumber: apt.tokenNumber });
                   }}
-                  className={`text-xs px-3.5 py-2 rounded-2xl font-bold transition flex items-center gap-2 border ${
+                  className={`text-xs px-4 py-2.5 rounded-2xl font-bold transition flex items-center gap-2 border min-h-[44px] touch-manipulation active:scale-95 ${
                     isSelected
-                      ? 'bg-blue-600 text-white border-blue-600 shadow-md'
-                      : 'bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-blue-400'
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-500/25 ring-2 ring-blue-400/40'
+                      : 'bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:border-blue-400'
                   }`}
                 >
-                  <span className="font-mono bg-white/20 px-2 py-0.5 rounded-lg text-xs">
+                  <span className="font-mono bg-white/20 px-2 py-0.5 rounded-lg text-xs font-black">
                     #{apt.tokenNumber}
                   </span>
-                  <span>{apt.doctor?.name || 'Doctor'}</span>
-                  <span className="text-[10px] opacity-75 font-normal">({apt.time})</span>
+                  <span className="truncate max-w-[150px] sm:max-w-none">{doctorName}</span>
+                  <span className="text-[10px] opacity-75 font-normal shrink-0">({apt.time})</span>
                 </button>
               );
             })}
@@ -243,21 +260,21 @@ const TrackToken = () => {
       )}
 
       {/* Lookup Form */}
-      <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 md:p-8 shadow-xl border border-slate-200 dark:border-slate-800">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-8 shadow-xl border border-slate-200 dark:border-slate-800">
         <form onSubmit={handleSearchSubmit} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
           <div className="md:col-span-6">
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
               {t('selectDoctorPrompt')}
             </label>
             <select
-              value={selectedDoctorId}
+              value={String(selectedDoctorId || '')}
               onChange={(e) => setSelectedDoctorId(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-2xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-2xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[48px]"
               required
             >
               <option value="">{isHindi ? '-- विशेषज्ञ का चयन करें --' : '-- Choose Specialist --'}</option>
               {doctors.map((doc) => (
-                <option key={doc._id} value={doc._id}>
+                <option key={doc._id} value={String(doc._id)}>
                   {doc.name} — {doc.specialization} ({doc.clinic?.split('&')[0]})
                 </option>
               ))}
@@ -275,10 +292,10 @@ const TrackToken = () => {
                 min="1"
                 value={tokenInput}
                 onChange={(e) => setTokenInput(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-10 pr-4 py-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-2xl text-base font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[48px]"
                 required
               />
-              <span className="absolute left-4 top-3 text-slate-400 font-bold text-sm">#</span>
+              <span className="absolute left-4 top-3.5 text-slate-400 font-bold text-sm">#</span>
             </div>
           </div>
 
@@ -286,7 +303,7 @@ const TrackToken = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3.5 px-4 rounded-2xl transition shadow-lg shadow-blue-500/20 disabled:opacity-50 flex items-center justify-center gap-2 text-xs"
+              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3.5 px-4 rounded-2xl transition shadow-lg shadow-blue-500/20 disabled:opacity-50 flex items-center justify-center gap-2 text-sm min-h-[48px] touch-manipulation active:scale-95"
             >
               {loading ? <FiRefreshCw className="animate-spin text-base" /> : <FiSearch className="text-base" />}
               <span>{t('trackLive')}</span>

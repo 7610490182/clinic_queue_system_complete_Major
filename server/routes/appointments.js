@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const Appointment = require('../models/Appointment');
 const Doctor = require('../models/Doctor');
 const AuditLog = require('../models/AuditLog');
@@ -13,6 +14,16 @@ router.get('/my', auth, async (req, res) => {
     const appointments = await Appointment.find({ patient: req.user._id })
       .populate('doctor', 'name specialization clinic timings address phone profileImage')
       .sort({ date: -1 });
+
+    // Auto-heal any legacy appointments with orphaned doctor references
+    const fallbackDoctor = await Doctor.findOne({ email: 'dr.akash@clinic.com' }) || await Doctor.findOne({ isActive: true });
+    for (const apt of appointments) {
+      if (!apt.doctor && fallbackDoctor) {
+        apt.doctor = fallbackDoctor;
+        await Appointment.updateOne({ _id: apt._id }, { doctor: fallbackDoctor._id });
+      }
+    }
+
     res.json(appointments);
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
@@ -185,9 +196,112 @@ router.get('/', auth, adminAuth, async (req, res) => {
   }
 });
 
+// Patient-facing Track Token Status
+router.get('/track-token', async (req, res) => {
+  try {
+    const { tokenNumber, doctorId, appointmentId } = req.query;
+
+    let query = {};
+    if (appointmentId) {
+      if (!mongoose.Types.ObjectId.isValid(appointmentId)) {
+        return res.status(400).json({ message: 'Invalid appointment ID format' });
+      }
+      query._id = appointmentId;
+    } else if (tokenNumber && doctorId) {
+      if (!mongoose.Types.ObjectId.isValid(doctorId)) {
+        return res.status(400).json({ message: 'Invalid doctor ID format' });
+      }
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date();
+      todayEnd.setHours(23, 59, 59, 999);
+
+      query = {
+        tokenNumber: parseInt(tokenNumber, 10),
+        doctor: doctorId,
+        date: { $gte: todayStart, $lte: todayEnd },
+        status: { $ne: 'cancelled' }
+      };
+    } else {
+      return res.status(400).json({ message: 'Provide either appointmentId or tokenNumber & doctorId' });
+    }
+
+    let appointment = await Appointment.findOne(query)
+      .populate('doctor', 'name specialization clinic timings address rating phone profileImage')
+      .populate('patient', 'name phone');
+
+    // Fallback: If not found strictly within today's range, check any recent or active appointment for this doctor & token
+    if (!appointment && tokenNumber && doctorId) {
+      appointment = await Appointment.findOne({
+        tokenNumber: parseInt(tokenNumber, 10),
+        doctor: doctorId,
+        status: { $ne: 'cancelled' }
+      })
+      .sort({ createdAt: -1 })
+      .populate('doctor', 'name specialization clinic timings address rating phone profileImage')
+      .populate('patient', 'name phone');
+    }
+
+    if (!appointment) {
+      return res.status(404).json({ message: 'Appointment or token not found. Please verify your token number and selected doctor.' });
+    }
+
+    // Auto-heal doctor if missing
+    if (!appointment.doctor) {
+      const fallbackDoc = await Doctor.findOne({ email: 'dr.akash@clinic.com' }) || await Doctor.findOne({ isActive: true });
+      if (fallbackDoc) {
+        appointment.doctor = fallbackDoc;
+        await Appointment.updateOne({ _id: appointment._id }, { doctor: fallbackDoc._id });
+      }
+    }
+
+    const apptDate = new Date(appointment.date);
+    const startOfDay = new Date(apptDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(apptDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const docIdVal = appointment.doctor?._id || appointment.doctor;
+    const allDayApts = docIdVal ? await Appointment.find({
+      doctor: docIdVal,
+      date: { $gte: startOfDay, $lte: endOfDay },
+      status: { $ne: 'cancelled' }
+    }).sort({ priority: -1, tokenNumber: 1 }) : [];
+
+    const consultingApt = allDayApts.find((a) => a.status === 'consulting');
+    const currentServingToken = consultingApt
+      ? consultingApt.tokenNumber
+      : allDayApts.find((a) => ['confirmed', 'in_queue', 'waiting', 'checked_in'].includes(a.status))?.tokenNumber || 1;
+
+    const tokensAhead = Math.max(0, appointment.tokenNumber - currentServingToken);
+    const estimatedWaitMinutes =
+      appointment.status === 'completed'
+        ? 0
+        : appointment.status === 'consulting'
+        ? 0
+        : Math.max(5, tokensAhead * 15);
+
+    res.json({
+      appointment,
+      currentServingToken,
+      tokensAhead,
+      estimatedWaitMinutes,
+      totalTokensToday: allDayApts.length,
+      isNext: tokensAhead === 1,
+      isNow: appointment.status === 'consulting' || (currentServingToken === appointment.tokenNumber && appointment.status !== 'completed')
+    });
+  } catch (error) {
+    console.error('Error tracking token:', error);
+    res.status(500).json({ message: 'Failed to track token', error: error.message });
+  }
+});
+
 // Get single appointment by ID (Resource Owner Verification)
 router.get('/:id', auth, async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid appointment ID format' });
+    }
     const appointment = await Appointment.findById(req.params.id)
       .populate('patient', 'name email phone bloodGroup healthCardId')
       .populate('doctor', 'name specialization clinic timings address phone profileImage');
@@ -545,91 +659,6 @@ router.get('/live-queue/:doctorId/:date?', async (req, res) => {
   } catch (error) {
     console.error('Error fetching live queue:', error);
     res.status(500).json({ message: 'Failed to fetch live queue', error: error.message });
-  }
-});
-
-// Patient-facing Track Token Status
-router.get('/track-token', async (req, res) => {
-  try {
-    const { tokenNumber, doctorId, appointmentId } = req.query;
-
-    let query = {};
-    if (appointmentId) {
-      query._id = appointmentId;
-    } else if (tokenNumber && doctorId) {
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
-      const todayEnd = new Date();
-      todayEnd.setHours(23, 59, 59, 999);
-
-      query = {
-        tokenNumber: parseInt(tokenNumber, 10),
-        doctor: doctorId,
-        date: { $gte: todayStart, $lte: todayEnd },
-        status: { $ne: 'cancelled' }
-      };
-    } else {
-      return res.status(400).json({ message: 'Provide either appointmentId or tokenNumber & doctorId' });
-    }
-
-    let appointment = await Appointment.findOne(query)
-      .populate('doctor', 'name specialization clinic timings address rating phone profileImage')
-      .populate('patient', 'name phone');
-
-    // Fallback: If not found strictly within today's range, check any recent or active appointment for this doctor & token
-    if (!appointment && tokenNumber && doctorId) {
-      appointment = await Appointment.findOne({
-        tokenNumber: parseInt(tokenNumber, 10),
-        doctor: doctorId,
-        status: { $ne: 'cancelled' }
-      })
-      .sort({ createdAt: -1 })
-      .populate('doctor', 'name specialization clinic timings address rating phone profileImage')
-      .populate('patient', 'name phone');
-    }
-
-    if (!appointment) {
-      return res.status(404).json({ message: 'Appointment or token not found. Please verify your token number and selected doctor.' });
-    }
-
-    const apptDate = new Date(appointment.date);
-    const startOfDay = new Date(apptDate);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(apptDate);
-    endOfDay.setHours(23, 59, 59, 999);
-
-    const docIdVal = appointment.doctor?._id || appointment.doctor;
-    const allDayApts = docIdVal ? await Appointment.find({
-      doctor: docIdVal,
-      date: { $gte: startOfDay, $lte: endOfDay },
-      status: { $ne: 'cancelled' }
-    }).sort({ priority: -1, tokenNumber: 1 }) : [];
-
-    const consultingApt = allDayApts.find((a) => a.status === 'consulting');
-    const currentServingToken = consultingApt
-      ? consultingApt.tokenNumber
-      : allDayApts.find((a) => ['confirmed', 'in_queue', 'waiting', 'checked_in'].includes(a.status))?.tokenNumber || 1;
-
-    const tokensAhead = Math.max(0, appointment.tokenNumber - currentServingToken);
-    const estimatedWaitMinutes =
-      appointment.status === 'completed'
-        ? 0
-        : appointment.status === 'consulting'
-        ? 0
-        : Math.max(5, tokensAhead * 15);
-
-    res.json({
-      appointment,
-      currentServingToken,
-      tokensAhead,
-      estimatedWaitMinutes,
-      totalTokensToday: allDayApts.length,
-      isNext: tokensAhead === 1,
-      isNow: appointment.status === 'consulting' || (currentServingToken === appointment.tokenNumber && appointment.status !== 'completed')
-    });
-  } catch (error) {
-    console.error('Error tracking token:', error);
-    res.status(500).json({ message: 'Failed to track token', error: error.message });
   }
 });
 
